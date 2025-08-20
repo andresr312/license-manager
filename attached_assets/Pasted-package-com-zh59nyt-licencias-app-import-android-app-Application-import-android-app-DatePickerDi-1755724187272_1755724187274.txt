@@ -1,0 +1,851 @@
+package com.zh59nyt.licencias_app
+
+import android.app.Application
+import android.app.DatePickerDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.os.Bundle
+import android.util.Base64
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.temporal.IsoFields
+import java.util.*
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+import okhttp3.*
+import org.json.JSONObject
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import org.json.JSONArray
+
+// ====================== NOTIFICACIONES DISCORD ======================
+object DiscordNotifier {
+    private const val WEBHOOK_URL = "https://discord.com/api/webhooks/1406855005759082537/PIW9zM3ATkT-ElLLaIDhmr7-JGRlRNPRPdthaJAYAbPViRdQ4UIizeYMTWKF7DAfw5cg"
+    private val client = OkHttpClient()
+
+    private fun postToDiscord(json: JSONObject) {
+        val body = RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
+        val request = Request.Builder().url(WEBHOOK_URL).post(body).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: java.io.IOException) {
+                e.printStackTrace()
+            }
+            override fun onResponse(call: Call, response: Response) {
+                println("Discord response: ${response.code} -> ${response.message}")
+                println(response.body?.string())
+                response.close()
+            }
+        })
+    }
+
+    fun sendLicenseCreated(license: License) {
+        val embed = JSONObject().apply {
+            put("title", license.businessName)
+            put("description", "300$ robados")
+            put("color", 5763719) // azul
+            put("fields", JSONArray().apply {
+                put(JSONObject().put("name", "RIF").put("value", license.rif))
+                put(JSONObject().put("name", "Expira").put("value", license.expirationDate().toString()))
+                put(JSONObject().put("name", "Tipo").put("value", license.licenseType))
+                put(JSONObject().put("name", "Hardware ID").put("value", license.hardwareId))
+            })
+        }
+
+        val json = JSONObject().apply {
+            put("content", "🆕 **300$ robados**")
+            put("embeds", JSONArray().put(embed))
+        }
+
+        postToDiscord(json)
+    }
+
+    fun sendLicenseRenewed(old: License, new: License) {
+        val embed = JSONObject().apply {
+            put("title", new.businessName)
+            put("description", "300$ robados renovados")
+            put("color", 16776960) // amarillo
+            put("fields", JSONArray().apply {
+                put(JSONObject().put("name", "RIF").put("value", new.rif))
+                put(JSONObject().put("name", "Expiración Anterior").put("value", old.expirationDate().toString()))
+                put(JSONObject().put("name", "Nueva Expiración").put("value", new.expirationDate().toString()))
+            })
+        }
+
+        val json = JSONObject().apply {
+            put("content", "🔄 **300$ robados renovados**")
+            put("embeds", JSONArray().put(embed))
+        }
+
+        postToDiscord(json)
+    }
+
+    // NUEVO: aviso de expiración próxima
+    fun sendLicenseExpiring(license: License, daysRemaining: Long) {
+        val embed = JSONObject().apply {
+            put("title", license.businessName)
+            put("description", "⚠️ Licencia próxima a vencer en $daysRemaining días")
+            put("color", 16711680) // rojo
+            put("fields", JSONArray().apply {
+                put(JSONObject().put("name", "RIF").put("value", license.rif))
+                put(JSONObject().put("name", "Expira").put("value", license.expirationDate().toString()))
+                put(JSONObject().put("name", "Tipo").put("value", license.licenseType))
+            })
+        }
+
+        val json = JSONObject().apply {
+            put("content", "⚠️ **Licencia próxima a vencer**")
+            put("embeds", JSONArray().put(embed))
+        }
+
+        postToDiscord(json)
+    }
+}
+
+// ====================== MODELOS ======================
+data class License(
+    val id: Long,
+    val businessName: String,
+    val rif: String,
+    val expirationEpochDay: Long,
+    val encodedLicense: String,
+    val adminPassword: String,
+    val direccion1: String,
+    val direccion2: String,
+    val direccion3: String,
+    val direccion4: String,
+    val licenseType: String,
+    val hardwareId: String,           // NUEVO
+    val creationEpochDay: Long        // NUEVO
+) {
+    fun expirationDate(): LocalDate = LocalDate.ofEpochDay(expirationEpochDay)
+    fun creationDate(): LocalDate = LocalDate.ofEpochDay(creationEpochDay)
+}
+
+// Configuración para Split (personas y porcentajes)
+data class SplitPerson(val name: String, val percentage: Int)
+
+// ====================== ALMACENAMIENTO ======================
+class LicenseStorage(val context: Application) {
+    private val gson = Gson()
+    private val fileLicenses = "licenses.json"
+    private val fileCosts = "costs.json"
+    private val fileSplitPeople = "split_people.json"
+    private val fileExpNotified = "exp_notified.json"
+
+    fun saveLicenses(licenses: List<License>) {
+        val json = gson.toJson(licenses)
+        context.openFileOutput(fileLicenses, Application.MODE_PRIVATE).use { it.write(json.toByteArray()) }
+    }
+
+    fun loadLicenses(): List<License> {
+        val file = File(context.filesDir, fileLicenses)
+        if (!file.exists()) return emptyList()
+        val json = file.readText()
+        val type = object : TypeToken<List<License>>() {}.type
+        return gson.fromJson(json, type)
+    }
+
+    // Costos por ID de licencia
+    fun saveCosts(costs: Map<Long, Double>) {
+        val json = gson.toJson(costs)
+        context.openFileOutput(fileCosts, Application.MODE_PRIVATE).use { it.write(json.toByteArray()) }
+    }
+
+    fun loadCosts(): Map<Long, Double> {
+        val file = File(context.filesDir, fileCosts)
+        if (!file.exists()) return emptyMap()
+        val json = file.readText()
+        val type = object : TypeToken<Map<Long, Double>>() {}.type
+        return gson.fromJson(json, type)
+    }
+
+    // Personas del Split
+    fun saveSplitPeople(people: List<SplitPerson>) {
+        val json = gson.toJson(people)
+        context.openFileOutput(fileSplitPeople, Application.MODE_PRIVATE).use { it.write(json.toByteArray()) }
+    }
+
+    fun loadSplitPeople(): List<SplitPerson> {
+        val file = File(context.filesDir, fileSplitPeople)
+        if (!file.exists()) return emptyList()
+        val json = file.readText()
+        val type = object : TypeToken<List<SplitPerson>>() {}.type
+        return gson.fromJson(json, type)
+    }
+
+    // Mapa de expiraciones notificadas: licenseId -> expirationEpochDay ya notificado
+    fun saveExpNotified(map: Map<Long, Long>) {
+        val json = gson.toJson(map)
+        context.openFileOutput(fileExpNotified, Application.MODE_PRIVATE).use { it.write(json.toByteArray()) }
+    }
+
+    fun loadExpNotified(): Map<Long, Long> {
+        val file = File(context.filesDir, fileExpNotified)
+        if (!file.exists()) return emptyMap()
+        val json = file.readText()
+        val type = object : TypeToken<Map<Long, Long>>() {}.type
+        return gson.fromJson(json, type)
+    }
+}
+
+// ====================== GENERADOR ======================
+object LicenseGenerator {
+    const val BASE64_KEY = "dGhpc2lzMTZieXRlc2tleQ=="
+    const val BASE64_IV = "a1b2c3d4e5f6g7h8"
+
+    private fun getKey(): ByteArray = Base64.decode(BASE64_KEY, Base64.DEFAULT)
+    private fun getIV(): ByteArray = BASE64_IV.toByteArray(Charsets.UTF_8)
+
+    private fun encryptLicense(plainText: String): ByteArray {
+        val keySpec = SecretKeySpec(getKey(), "AES")
+        val ivSpec = IvParameterSpec(getIV())
+        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec)
+        return cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
+    }
+
+    private fun decodeLicense(encodedLicense: String): String {
+        val cleanEncoded = encodedLicense.replace("-", "")
+        val encryptedBytes = Base64.decode(cleanEncoded, Base64.NO_WRAP)
+        val keySpec = SecretKeySpec(getKey(), "AES")
+        val ivSpec = IvParameterSpec(getIV())
+        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
+        val decrypted = cipher.doFinal(encryptedBytes)
+        return String(decrypted, Charsets.UTF_8)
+    }
+
+    fun encode(data: ByteArray): String = Base64.encodeToString(data, Base64.NO_WRAP)
+
+    fun generateLicense(
+        fecha: String,
+        rif: String,
+        nombreNegocio: String,
+        direccion1: String,
+        direccion2: String,
+        direccion3: String,
+        direccion4: String,
+        adminPassword: String,
+        licenseType: String,
+        hardwareId: String,
+        creationDate: String
+    ): String {
+        val plain =
+            "$fecha|$rif|$nombreNegocio|$direccion1|$direccion2|$direccion3|$direccion4|$adminPassword|$licenseType|$hardwareId|$creationDate|TRUESIGNED"
+        val encrypted = encryptLicense(plain)
+        return encode(encrypted)
+    }
+
+    fun decryptLicense(encodedLicense: String): List<String> {
+        val decrypted = decodeLicense(encodedLicense)
+        return decrypted.split("|")
+    }
+}
+
+// ====================== VIEWMODEL ======================
+class LicenseViewModel(private val storage: LicenseStorage) : ViewModel() {
+
+    private val _licenses = MutableStateFlow(storage.loadLicenses())
+    val licenses: StateFlow<List<License>> = _licenses
+        .map { it.sortedBy { l -> l.expirationEpochDay } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // Costos (paralelo a License)
+    private val _costs = MutableStateFlow(storage.loadCosts())
+    val costs: StateFlow<Map<Long, Double>> = _costs
+
+    // Personas del Split
+    private val _splitPeople = MutableStateFlow(storage.loadSplitPeople())
+    val splitPeople: StateFlow<List<SplitPerson>> = _splitPeople
+
+    // Expiraciones ya notificadas (para no spamear): licenseId -> expirationEpochDay
+    private val _expNotified = MutableStateFlow(storage.loadExpNotified())
+
+    private var nextId = (_licenses.value.maxOfOrNull { it.id } ?: 0L) + 1
+
+    init {
+        // Al iniciar, revisar expiraciones por si alguna ya está por vencer
+        checkExpirationsAndNotify()
+    }
+
+    fun createLicense(
+        name: String,
+        rif: String,
+        expiration: LocalDate,
+        adminPassword: String,
+        direccion1: String,
+        direccion2: String,
+        direccion3: String,
+        direccion4: String,
+        licenseType: String,
+        hardwareId: String,
+        cost: Double
+    ) {
+        val creationDate = LocalDate.now()
+
+        val encoded = LicenseGenerator.generateLicense(
+            expiration.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+            rif,
+            name,
+            direccion1,
+            direccion2,
+            direccion3,
+            direccion4,
+            adminPassword,
+            licenseType,
+            hardwareId,
+            creationDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+        )
+
+        val license = License(
+            id = nextId++,
+            businessName = name,
+            rif = rif,
+            expirationEpochDay = expiration.toEpochDay(),
+            encodedLicense = encoded,
+            adminPassword = adminPassword,
+            direccion1 = direccion1,
+            direccion2 = direccion2,
+            direccion3 = direccion3,
+            direccion4 = direccion4,
+            licenseType = licenseType,
+            hardwareId = hardwareId,
+            creationEpochDay = creationDate.toEpochDay()
+        )
+
+        _licenses.value = _licenses.value + license
+        // guardar costo paralelo
+        _costs.value = _costs.value + (license.id to cost)
+
+        saveAllAsync()
+        DiscordNotifier.sendLicenseCreated(license)
+
+        // Revisar vencimientos después de crear
+        checkExpirationsAndNotify()
+    }
+
+    fun deleteLicense(license: License) {
+        _licenses.value = _licenses.value.filter { it.id != license.id }
+        // borrar costo asociado
+        _costs.value = _costs.value - license.id
+        // limpiar marca de notificación si existe
+        _expNotified.value = _expNotified.value - license.id
+
+        saveAllAsync()
+    }
+
+    fun renewLicense(old: License, addDays: Long = 0L, newDate: LocalDate? = null) {
+        val newExpiration = newDate ?: old.expirationDate().plusDays(addDays)
+        val newEncoded = LicenseGenerator.generateLicense(
+            newExpiration.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+            old.rif,
+            old.businessName,
+            old.direccion1,
+            old.direccion2,
+            old.direccion3,
+            old.direccion4,
+            old.adminPassword,
+            old.licenseType,
+            old.hardwareId,
+            old.creationDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+        )
+
+        val updatedList = _licenses.value.map {
+            if (it.id == old.id) it.copy(
+                expirationEpochDay = newExpiration.toEpochDay(),
+                encodedLicense = newEncoded
+            ) else it
+        }
+        val newLicense = updatedList.first { it.id == old.id }
+        _licenses.value = updatedList
+        saveAllAsync()
+
+        DiscordNotifier.sendLicenseRenewed(old, newLicense)
+
+        // Al renovar, limpiamos la marca de notificación para este id si cambió la fecha de expiración
+        _expNotified.value = _expNotified.value.toMutableMap().apply {
+            this[old.id] = newLicense.expirationEpochDay // marcamos nueva expiración para no duplicar si ya está cerca y se renueva a corto plazo
+        }
+        storage.saveExpNotified(_expNotified.value)
+    }
+
+    fun daysRemaining(expiration: LocalDate): Long {
+        return ChronoUnit.DAYS.between(LocalDate.now(), expiration)
+    }
+
+    private fun saveAllAsync() {
+        viewModelScope.launch {
+            storage.saveLicenses(_licenses.value)
+            storage.saveCosts(_costs.value)
+            storage.saveSplitPeople(_splitPeople.value)
+            storage.saveExpNotified(_expNotified.value)
+        }
+    }
+
+    // Personas del Split
+    fun addSplitPerson(name: String, percentage: Int) {
+        _splitPeople.value = _splitPeople.value + SplitPerson(name, percentage)
+        viewModelScope.launch { storage.saveSplitPeople(_splitPeople.value) }
+    }
+
+    fun removeSplitPerson(person: SplitPerson) {
+        _splitPeople.value = _splitPeople.value - person
+        viewModelScope.launch { storage.saveSplitPeople(_splitPeople.value) }
+    }
+
+    // Revisión y notificación de expiraciones
+    fun checkExpirationsAndNotify(thresholdDays: Long = 7L) {
+        val today = LocalDate.now()
+        val toNotify = mutableMapOf<Long, Long>() // licenseId -> expirationEpochDay
+        _licenses.value.forEach { lic ->
+            val d = ChronoUnit.DAYS.between(today, lic.expirationDate())
+            val already = _expNotified.value[lic.id]
+            if (d in 0..thresholdDays && already != lic.expirationEpochDay) {
+                // notificar y marcar
+                DiscordNotifier.sendLicenseExpiring(lic, d)
+                toNotify[lic.id] = lic.expirationEpochDay
+            }
+        }
+        if (toNotify.isNotEmpty()) {
+            _expNotified.value = _expNotified.value + toNotify
+            viewModelScope.launch { storage.saveExpNotified(_expNotified.value) }
+        }
+    }
+
+    // Accesores para costos desde UI (opcional)
+    fun getCost(licenseId: Long): Double = _costs.value[licenseId] ?: 0.0
+}
+
+// ====================== UI ======================
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val storage = LicenseStorage(application)
+        val vm = LicenseViewModel(storage)
+        setContent { AppContent(vm) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppContent(vm: LicenseViewModel) {
+    val licenses by vm.licenses.collectAsState()
+    val costs by vm.costs.collectAsState()
+    var showForm by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<License?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    var drawerOpen by remember { mutableStateOf(false) }
+    var selectedScreen by remember { mutableStateOf("Licencias") }
+
+    val filtered = licenses.filter {
+        it.businessName.contains(searchQuery, true) || it.rif.contains(searchQuery, true)
+    }
+
+    ModalNavigationDrawer(
+        drawerContent = {
+            ModalDrawerSheet {
+                Spacer(Modifier.height(8.dp))
+                Text("Menú", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold)
+                NavigationDrawerItem(
+                    label = { Text("Licencias") },
+                    selected = selectedScreen == "Licencias",
+                    onClick = { selectedScreen = "Licencias"; drawerOpen = false }
+                )
+                NavigationDrawerItem(
+                    label = { Text("Split") },
+                    selected = selectedScreen == "Split",
+                    onClick = { selectedScreen = "Split"; drawerOpen = false }
+                )
+            }
+        },
+        gesturesEnabled = true,
+        drawerState = rememberDrawerState(if (drawerOpen) DrawerValue.Open else DrawerValue.Closed)
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(if (selectedScreen == "Licencias") "Licencias" else "Split") },
+                    navigationIcon = {
+                        IconButton(onClick = { drawerOpen = !drawerOpen }) { Text("☰") }
+                    }
+                )
+            },
+            floatingActionButton = {
+                if (selectedScreen == "Licencias") {
+                    FloatingActionButton(onClick = { showForm = true }) { Text("+") }
+                }
+            }
+        ) { padding ->
+            when (selectedScreen) {
+                "Licencias" -> {
+                    Column(Modifier.padding(padding)) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            label = { Text("Buscar") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                        )
+
+                        Box(Modifier.weight(1f)) {
+                            when {
+                                showForm -> LicenseForm(
+                                    onDismiss = { showForm = false },
+                                    onSave = { name, rif, date, admin, dir1, dir2, dir3, dir4, type, hardwareId, cost ->
+                                        vm.createLicense(
+                                            name, rif, date, admin, dir1, dir2, dir3, dir4, type, hardwareId, cost
+                                        )
+                                        showForm = false
+                                    }
+                                )
+                                selected != null -> LicenseDetails(
+                                    license = selected!!,
+                                    daysRemaining = vm.daysRemaining(selected!!.expirationDate()),
+                                    onClose = { selected = null },
+                                    onRenew = { lic, days, newDate ->
+                                        vm.renewLicense(lic, days, newDate)
+                                        selected = null
+                                    },
+                                    onDelete = { vm.deleteLicense(it); selected = null }
+                                )
+                                else -> LicenseList(
+                                    licenses = filtered,
+                                    costs = costs
+                                ) { selected = it }
+                            }
+                        }
+                    }
+                }
+                "Split" -> {
+                    SplitScreen(vm, modifier = Modifier.padding(padding))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LicenseList(
+    licenses: List<License>,
+    costs: Map<Long, Double>,
+    onLicenseClick: (License) -> Unit
+) {
+    val today = LocalDate.now()
+    val sortedLicenses = licenses.sortedBy { ChronoUnit.DAYS.between(today, it.expirationDate()) }
+
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(sortedLicenses) { license ->
+            val daysRemaining = ChronoUnit.DAYS.between(today, license.expirationDate())
+            val cost = costs[license.id] ?: 0.0
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .clickable { onLicenseClick(license) },
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text("${license.businessName} ($daysRemaining días)", fontWeight = FontWeight.Bold)
+                    Text("RIF: ${license.rif}")
+                    Text("Expira: ${license.expirationDate()}")
+                    Text("Tipo: ${license.licenseType}")
+                    Text("Costo: ${"%.2f".format(cost)} USD")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LicenseDetails(
+    license: License,
+    daysRemaining: Long,
+    onClose: () -> Unit,
+    onRenew: (License, Long, LocalDate?) -> Unit,
+    onDelete: (License) -> Unit
+) {
+    val ctx = LocalContext.current
+    var customRenewDate by remember { mutableStateOf<LocalDate?>(null) }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text("Detalles de la Licencia", fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text("Nombre: ${license.businessName}")
+        Text("RIF: ${license.rif}")
+        Text("Expiración: ${license.expirationDate()} ($daysRemaining días restantes)")
+        Text("Tipo: ${license.licenseType}")
+        Text("Hardware ID: ${license.hardwareId}")
+        Text("Creación: ${license.creationDate()}")
+        Text("Direcciones: ${license.direccion1}, ${license.direccion2}, ${license.direccion3}, ${license.direccion4}")
+        Text("Admin Password: ${license.adminPassword}")
+        Text("Encoded: ${license.encodedLicense}", maxLines = 3)
+
+        Spacer(Modifier.height(16.dp))
+        Row {
+            Button(onClick = onClose) { Text("Cerrar") }
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = { onDelete(license) }) { Text("Eliminar") }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = {
+            val newDate = LocalDate.now().plusDays(30)
+            onRenew(license, 0, newDate)
+        }) { Text("Renovar +30 días") }
+
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = {
+            val c = Calendar.getInstance()
+            DatePickerDialog(
+                ctx, { _, y, m, d ->
+                    customRenewDate = LocalDate.of(y, m + 1, d)
+                    onRenew(license, 0, customRenewDate)
+                },
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
+            ).show()
+        }) {
+            Text("Renovar hasta fecha específica")
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = {
+            val clipboard = ctx.getSystemService(Application.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("License", license.encodedLicense)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(ctx, "Licencia copiada al portapapeles", Toast.LENGTH_SHORT).show()
+        }) { Text("Copiar Licencia") }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LicenseForm(
+    onDismiss: () -> Unit,
+    onSave: (String, String, LocalDate, String, String, String, String, String, String, String, Double) -> Unit
+) {
+    val ctx = LocalContext.current
+    var name by remember { mutableStateOf("") }
+    var rif by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf<LocalDate?>(null) }
+    var admin by remember { mutableStateOf("") }
+    var dir1 by remember { mutableStateOf("") }
+    var dir2 by remember { mutableStateOf("") }
+    var dir3 by remember { mutableStateOf("") }
+    var dir4 by remember { mutableStateOf("") }
+    var hardwareId by remember { mutableStateOf("") }
+    var cost by remember { mutableStateOf("") }
+
+    val licenseTypes = listOf("Factura Fiscal y Garantia", "Factura Fiscal", "Garantia")
+    var selectedLicenseType by remember { mutableStateOf(licenseTypes.first()) }
+    var expanded by remember { mutableStateOf(false) }
+
+    val scrollState = rememberScrollState()
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp)
+    ) {
+        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre") })
+        OutlinedTextField(value = rif, onValueChange = { rif = it }, label = { Text("RIF") })
+        OutlinedTextField(value = admin, onValueChange = { admin = it }, label = { Text("Admin Password") })
+        OutlinedTextField(value = dir1, onValueChange = { dir1 = it }, label = { Text("Dirección 1") })
+        OutlinedTextField(value = dir2, onValueChange = { dir2 = it }, label = { Text("Dirección 2") })
+        OutlinedTextField(value = dir3, onValueChange = { dir3 = it }, label = { Text("Dirección 3") })
+        OutlinedTextField(value = dir4, onValueChange = { dir4 = it }, label = { Text("Dirección 4") })
+        OutlinedTextField(value = hardwareId, onValueChange = { hardwareId = it }, label = { Text("Hardware ID") })
+        OutlinedTextField(value = cost, onValueChange = { cost = it }, label = { Text("Costo (USD)") })
+
+        Spacer(Modifier.height(8.dp))
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = selectedLicenseType,
+                onValueChange = {},
+                label = { Text("Tipo de Licencia") },
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                licenseTypes.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(type) },
+                        onClick = {
+                            selectedLicenseType = type
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = {
+            val c = Calendar.getInstance()
+            DatePickerDialog(
+                ctx, { _, y, m, d -> date = LocalDate.of(y, m + 1, d) },
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
+            ).show()
+        }) { Text(text = date?.format(DateTimeFormatter.ISO_DATE) ?: "Seleccionar Fecha Expiración") }
+
+        Spacer(Modifier.height(16.dp))
+        Row {
+            Button(onClick = onDismiss) { Text("Cancelar") }
+            Spacer(Modifier.width(16.dp))
+            Button(onClick = {
+                val parsedCost = cost.toDoubleOrNull()
+                if (name.isNotBlank() && rif.isNotBlank() && date != null && admin.isNotBlank() && hardwareId.isNotBlank() && parsedCost != null) {
+                    onSave(
+                        name, rif, date!!, admin, dir1, dir2, dir3, dir4, selectedLicenseType, hardwareId, parsedCost
+                    )
+                } else {
+                    Toast.makeText(ctx, "Complete todos los campos obligatorios (incluya un costo válido)", Toast.LENGTH_SHORT).show()
+                }
+            }) { Text("Guardar") }
+        }
+    }
+}
+
+// ====================== SPLIT SCREEN ======================
+@Composable
+fun SplitScreen(vm: LicenseViewModel, modifier: Modifier = Modifier) {
+    val licenses by vm.licenses.collectAsState()
+    val costs by vm.costs.collectAsState()
+    val people by vm.splitPeople.collectAsState()
+
+    // Agrupar por semana basada en ISO (AÑO SEMANAL + SEMANA)
+    // Clave: Pair(weekBasedYear, weekOfYear)
+    val weeklyTotals: Map<Pair<Int, Int>, Double> = remember(licenses, costs) {
+        licenses.groupBy {
+            val d = it.creationDate()
+            val year = d.get(IsoFields.WEEK_BASED_YEAR)
+            val week = d.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+            year to week
+        }.mapValues { (_, list) ->
+            list.sumOf { lic -> costs[lic.id] ?: 0.0 }
+        }
+    }
+
+    val currency: (Double) -> String = { v -> "%.2f".format(v) + " USD" }
+
+    Column(modifier.padding(16.dp)) {
+        Text("Split Semanal", fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+
+        // Tabla simple de semanas
+        weeklyTotals.toSortedMap(compareBy<Pair<Int, Int>> { it.first }.thenBy { it.second }).forEach { (yw, total) ->
+            val (year, week) = yw
+            val gain = total * 0.60
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Semana $week - $year", fontWeight = FontWeight.Bold)
+                    Text("Total vendido: ${currency(total)}")
+                    Text("Ganancia (60%): ${currency(gain)}")
+                    if (people.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Reparto:")
+                        people.forEach { p ->
+                            val share = gain * (p.percentage / 100.0)
+                            Text("- ${p.name}: ${currency(share)} (${p.percentage}%)")
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Divider()
+        Spacer(Modifier.height(12.dp))
+        Text("Personas y Porcentajes", fontWeight = FontWeight.Bold)
+
+        // Lista de personas
+        people.forEach { person ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("${person.name} — ${person.percentage}%")
+                TextButton(onClick = { vm.removeSplitPerson(person) }) { Text("Eliminar") }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Form para agregar persona
+        var pname by remember { mutableStateOf("") }
+        var ppct by remember { mutableStateOf("") }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = pname,
+                onValueChange = { pname = it },
+                label = { Text("Nombre") },
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = ppct,
+                onValueChange = { ppct = it.filter { ch -> ch.isDigit() } },
+                label = { Text("%") },
+                modifier = Modifier.width(100.dp)
+            )
+            Button(onClick = {
+                val pct = ppct.toIntOrNull() ?: -1
+                val totalPct = people.sumOf { it.percentage } + (pct.coerceAtLeast(0))
+                if (pname.isBlank() || pct !in 1..100) return@Button
+                if (totalPct > 100) return@Button // evitamos exceder 100% del 60% base
+                vm.addSplitPerson(pname.trim(), pct)
+                pname = ""
+                ppct = ""
+            }) { Text("Agregar") }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        val totalPct = people.sumOf { it.percentage }
+        Text("Porcentaje asignado: $totalPct% del 60% (restante: ${100 - totalPct}%)")
+    }
+}
