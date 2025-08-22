@@ -18,6 +18,7 @@ export default function Header({ title, showMobileMenu, onMobileMenuToggle }: He
                 size="sm"
                 className="md:hidden mr-3"
                 onClick={onMobileMenuToggle}
+                aria-label="Abrir menú"
               >
                 <i className="fas fa-bars text-slate-500" />
               </Button>

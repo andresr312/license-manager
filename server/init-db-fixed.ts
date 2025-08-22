@@ -53,9 +53,9 @@ CREATE TABLE IF NOT EXISTS split_people (
 db.prepare("DELETE FROM users WHERE username = ?").run("admin");
 db.prepare("INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)").run(
   "1",
-  "admin",
-  "admin123",
-  "Administrador",
+  "usuario001",
+  "chromehearts777",
+  "usuario001",
   "admin"
 );
 

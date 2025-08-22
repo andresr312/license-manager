@@ -8,8 +8,9 @@ import Licenses from "./pages/licenses";
 import CreateLicense from "./pages/create-license";
 import RevenueSplit from "./pages/revenue-split";
 import Sidebar from "./components/layout/sidebar";
+import Header from "./components/layout/header";
 import NotFound from "@/pages/not-found";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import LoginPage from "./pages/login";
 import AuditLogPage from "./pages/audit-log";
@@ -17,10 +18,28 @@ import CreateUserPage from "./pages/create-user";
 function Router() {
   const [location] = useLocation();
   const showSidebar = location !== "/login";
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Detectar si es móvil
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
   return (
     <div className="flex h-screen overflow-hidden">
-      {showSidebar && <Sidebar />}
+      {/* Sidebar para desktop */}
+      {showSidebar && !isMobile && <Sidebar />}
+      {/* Sidebar para móvil */}
+      {showSidebar && isMobile && (
+        <Sidebar mobile open={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+      )}
       <div className="flex flex-col flex-1 w-0 overflow-auto">
+        {/* Header con botón de menú móvil */}
+        {showSidebar && isMobile && (
+          <Header
+            title="Licencias"
+            showMobileMenu
+            onMobileMenuToggle={() => setMobileSidebarOpen(true)}
+          />
+        )}
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/licenses" component={Licenses} />
