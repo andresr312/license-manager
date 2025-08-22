@@ -62,6 +62,11 @@ export default function SplitManagement({ people, totalRevenue }: SplitManagemen
   });
 
   const onSubmit = (data: SplitPersonFormData) => {
+    const totalPercentage = people.reduce((sum, person) => sum + person.percentage, 0);
+    if (totalPercentage + data.percentage > 100) {
+      toast({ title: "No se puede exceder el 100% repartido", variant: "destructive" });
+      return;
+    }
     createMutation.mutate(data);
   };
 

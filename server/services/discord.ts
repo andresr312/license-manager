@@ -1,7 +1,7 @@
 import type { License } from '@shared/schema';
 
 export class DiscordNotifier {
-  private static readonly WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1406855005759082537/PIW9zM3ATkT-ElLLaIDhmr7-JGRlRNPRPdthaJAYAbPViRdQ4UIizeYMTWKF7DAfw5cg";
+  private static readonly WEBHOOK_URL = "https://discord.com/api/webhooks/1407803911649230879/6eYdp2hElDxMFWmD71wNuubp-unKy4HDCNEcIrEi7h1WH85IL3ex8nSb00ralOM15BFq";
 
   private static async postToDiscord(payload: any): Promise<void> {
     try {
@@ -27,18 +27,19 @@ export class DiscordNotifier {
     
     const embed = {
       title: license.businessName,
-      description: "300$ robados",
+      description: "Licencia creada",
       color: 5763719, // blue
       fields: [
         { name: "RIF", value: license.rif, inline: true },
         { name: "Expira", value: expirationDate, inline: true },
         { name: "Tipo", value: license.licenseType, inline: true },
         { name: "Hardware ID", value: license.hardwareId || "N/A", inline: true },
+        { name: "Monto", value: `$${license.cost}`, inline: true },
       ]
     };
 
     const payload = {
-      content: "🆕 **300$ robados**",
+  content: `🆕 **Licencia creada: $${license.cost}**`,
       embeds: [embed]
     };
 
@@ -51,17 +52,18 @@ export class DiscordNotifier {
     
     const embed = {
       title: newLicense.businessName,
-      description: "300$ robados renovados",
+  description: `Renovación: $${newLicense.cost}`,
       color: 16776960, // yellow
       fields: [
         { name: "RIF", value: newLicense.rif, inline: true },
         { name: "Expiración Anterior", value: oldExpiration, inline: true },
         { name: "Nueva Expiración", value: newExpiration, inline: true },
+        { name: "Monto", value: `$${newLicense.cost}`, inline: true },
       ]
     };
 
     const payload = {
-      content: "🔄 **300$ robados renovados**",
+  content: `🔄 **Licencia renovada: $${newLicense.cost}**`,
       embeds: [embed]
     };
 

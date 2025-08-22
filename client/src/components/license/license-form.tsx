@@ -16,14 +16,20 @@ import { useLocation } from "wouter";
 
 const licenseFormSchema = insertLicenseSchema.extend({
   expirationDate: z.string().min(1, "La fecha de expiración es requerida"),
+  hardwareId: z.string().min(1, "El Hardware ID es obligatorio"),
+  cost: z.number().min(0, "El costo debe ser mayor o igual a 0"),
+  direccion1: z.string().optional(),
+  direccion2: z.string().optional(),
+  direccion3: z.string().optional(),
+  direccion4: z.string().optional(),
 }).omit({ expirationEpochDay: true });
 
 type LicenseFormData = z.infer<typeof licenseFormSchema>;
 
 const licenseTypes = [
-  { value: "Factura Fiscal y Garantia", label: "Factura Fiscal y Garantia", cost: 300 },
-  { value: "Factura Fiscal", label: "Factura Fiscal", cost: 250 },
-  { value: "Garantia", label: "Garantia", cost: 200 },
+  { value: "Factura Fiscal y Garantia", label: "Factura Fiscal y Garantia" },
+  { value: "Factura Fiscal", label: "Factura Fiscal" },
+  { value: "Garantia", label: "Garantia" },
 ];
 
 export default function LicenseForm() {
@@ -42,7 +48,7 @@ export default function LicenseForm() {
       direccion3: "",
       direccion4: "",
       licenseType: "",
-      hardwareId: "",
+  hardwareId: "",
       expirationDate: "",
       cost: 300,
     },
@@ -51,8 +57,7 @@ export default function LicenseForm() {
   const createMutation = useMutation({
     mutationFn: async (data: LicenseFormData) => {
       const expirationDate = new Date(data.expirationDate);
-      const expirationEpochDay = Math.floor(expirationDate.getTime() / (1000 * 60 * 60 * 24));
-      
+      const expirationEpochDay = Math.floor(expirationDate.getTime() / (1000 * 60 * 60 * 24)) + 1;
       return apiRequest('POST', '/api/licenses', {
         ...data,
         expirationEpochDay,
@@ -73,13 +78,7 @@ export default function LicenseForm() {
     createMutation.mutate(data);
   };
 
-  const selectedLicenseType = form.watch("licenseType");
-  const selectedType = licenseTypes.find(type => type.value === selectedLicenseType);
-  
-  // Update cost when license type changes
-  if (selectedType && form.getValues("cost") !== selectedType.cost) {
-    form.setValue("cost", selectedType.cost);
-  }
+  // El costo lo coloca el usuario, no depende del tipo de licencia
 
   return (
     <Card className="max-w-4xl mx-auto">
@@ -135,7 +134,7 @@ export default function LicenseForm() {
                       <SelectContent>
                         {licenseTypes.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
-                            {type.label} - ${type.cost}
+                            {type.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -180,9 +179,9 @@ export default function LicenseForm() {
                 name="hardwareId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Hardware ID</FormLabel>
+                    <FormLabel>Hardware ID *</FormLabel>
                     <FormControl>
-                      <Input placeholder="ID del hardware (opcional)" {...field} value={field.value || ""} />
+                      <Input placeholder="ID del hardware" {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -191,8 +190,7 @@ export default function LicenseForm() {
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-lg font-medium text-slate-900">Direcciones</h4>
-              
+              <h4 className="text-lg font-medium text-slate-900">Direcciones (opcional)</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -201,13 +199,12 @@ export default function LicenseForm() {
                     <FormItem>
                       <FormLabel>Dirección 1</FormLabel>
                       <FormControl>
-                        <Input placeholder="Dirección principal" {...field} value={field.value || ""} />
+                        <Input placeholder="Dirección principal (opcional)" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
                 <FormField
                   control={form.control}
                   name="direccion2"
@@ -215,14 +212,13 @@ export default function LicenseForm() {
                     <FormItem>
                       <FormLabel>Dirección 2</FormLabel>
                       <FormControl>
-                        <Input placeholder="Dirección secundaria" {...field} value={field.value || ""} />
+                        <Input placeholder="Dirección secundaria (opcional)" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -231,13 +227,12 @@ export default function LicenseForm() {
                     <FormItem>
                       <FormLabel>Dirección 3</FormLabel>
                       <FormControl>
-                        <Input placeholder="Tercera dirección" {...field} value={field.value || ""} />
+                        <Input placeholder="Tercera dirección (opcional)" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
                 <FormField
                   control={form.control}
                   name="direccion4"
@@ -245,7 +240,7 @@ export default function LicenseForm() {
                     <FormItem>
                       <FormLabel>Dirección 4</FormLabel>
                       <FormControl>
-                        <Input placeholder="Cuarta dirección" {...field} value={field.value || ""} />
+                        <Input placeholder="Cuarta dirección (opcional)" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

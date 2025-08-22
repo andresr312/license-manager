@@ -11,9 +11,10 @@ import { apiRequest } from "@/lib/queryClient";
 interface LicenseTableProps {
   licenses: LicenseWithStatus[];
   onRenew: (license: LicenseWithStatus) => void;
+  showCost?: boolean;
 }
 
-export default function LicenseTable({ licenses, onRenew }: LicenseTableProps) {
+export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -94,6 +95,7 @@ export default function LicenseTable({ licenses, onRenew }: LicenseTableProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">RIF</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tipo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expira</th>
+                {showCost && <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Costo</th>}
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Estado</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Acciones</th>
               </tr>
@@ -111,6 +113,7 @@ export default function LicenseTable({ licenses, onRenew }: LicenseTableProps) {
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {expirationDate.toLocaleDateString('es-ES')}
                     </td>
+                    {showCost && <td className="px-6 py-4 text-sm text-slate-500">${license.cost}</td>}
                     <td className="px-6 py-4">{getStatusBadge(license.status)}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">
                       <div className="flex space-x-2">

@@ -22,7 +22,7 @@ export default function LicenseStats({ analytics }: LicenseStatsProps) {
       iconColor: "text-emerald-600"
     },
     {
-      title: "Por Vencer (30d)",
+      title: "Por Vencer (7d)",
       value: analytics.expiringLicenses.toString(),
       icon: "fas fa-exclamation-triangle",
       bgColor: "bg-amber-100",

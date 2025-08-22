@@ -15,6 +15,7 @@ export default function Licenses() {
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedLicense, setSelectedLicense] = useState<LicenseWithStatus | null>(null);
   const [newExpirationDate, setNewExpirationDate] = useState("");
+  const [newRenewCost, setNewRenewCost] = useState("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -22,8 +23,8 @@ export default function Licenses() {
   const { data: licenses = [], isLoading } = useLicenses();
 
   const renewMutation = useMutation({
-    mutationFn: async ({ licenseId, newExpirationEpochDay }: { licenseId: string, newExpirationEpochDay: number }) => {
-      return apiRequest('PUT', `/api/licenses/${licenseId}/renew`, { newExpirationEpochDay });
+    mutationFn: async ({ licenseId, newExpirationEpochDay, cost }: { licenseId: string, newExpirationEpochDay: number, cost: number }) => {
+      return apiRequest('PUT', `/api/licenses/${licenseId}/renew`, { newExpirationEpochDay, cost });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/licenses'] });
@@ -32,6 +33,7 @@ export default function Licenses() {
       setRenewDialogOpen(false);
       setSelectedLicense(null);
       setNewExpirationDate("");
+      setNewRenewCost("");
     },
     onError: () => {
       toast({ title: "Error al renovar la licencia", variant: "destructive" });
@@ -44,14 +46,13 @@ export default function Licenses() {
   };
 
   const handleRenewSubmit = () => {
-    if (!selectedLicense || !newExpirationDate) return;
-    
+    if (!selectedLicense || !newExpirationDate || !newRenewCost) return;
     const expirationDate = new Date(newExpirationDate);
-    const expirationEpochDay = Math.floor(expirationDate.getTime() / (1000 * 60 * 60 * 24));
-    
+    const expirationEpochDay = Math.floor(expirationDate.getTime() / (1000 * 60 * 60 * 24)) + 1;
     renewMutation.mutate({
       licenseId: selectedLicense.id,
-      newExpirationEpochDay: expirationEpochDay
+      newExpirationEpochDay: expirationEpochDay,
+      cost: parseFloat(newRenewCost)
     });
   };
 
@@ -111,11 +112,16 @@ export default function Licenses() {
               />
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <i className="fas fa-info-circle text-blue-600 mr-2" />
-                <span className="text-sm text-blue-800">Costo de renovación: <strong>$300</strong></span>
-              </div>
+            <div>
+              <Label htmlFor="newRenewCost">Nuevo Costo de Renovación *</Label>
+              <Input
+                id="newRenewCost"
+                type="number"
+                step="0.01"
+                value={newRenewCost}
+                onChange={e => setNewRenewCost(e.target.value)}
+                className="mt-1"
+              />
             </div>
 
             <div className="flex justify-end space-x-3">

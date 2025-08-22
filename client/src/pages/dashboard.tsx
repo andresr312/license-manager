@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLicenses } from "@/hooks/use-licenses";
 import { useRevenueAnalytics, useSplitPeople } from "@/hooks/use-revenue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerTrigger } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,10 +17,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { LicenseWithStatus } from "@shared/schema";
 
+import AuditLogPage from "./audit-log";
+
 export default function Dashboard() {
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedLicense, setSelectedLicense] = useState<LicenseWithStatus | null>(null);
   const [newExpirationDate, setNewExpirationDate] = useState("");
+  const [newRenewCost, setNewRenewCost] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -29,8 +34,8 @@ export default function Dashboard() {
   const { data: splitPeople = [] } = useSplitPeople();
 
   const renewMutation = useMutation({
-    mutationFn: async ({ licenseId, newExpirationEpochDay }: { licenseId: string, newExpirationEpochDay: number }) => {
-      return apiRequest('PUT', `/api/licenses/${licenseId}/renew`, { newExpirationEpochDay });
+    mutationFn: async ({ licenseId, newExpirationEpochDay, cost }: { licenseId: string, newExpirationEpochDay: number, cost: number }) => {
+      return apiRequest('PUT', `/api/licenses/${licenseId}/renew`, { newExpirationEpochDay, cost });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/licenses'] });
@@ -39,6 +44,7 @@ export default function Dashboard() {
       setRenewDialogOpen(false);
       setSelectedLicense(null);
       setNewExpirationDate("");
+      setNewRenewCost("");
     },
     onError: () => {
       toast({ title: "Error al renovar la licencia", variant: "destructive" });
@@ -51,14 +57,13 @@ export default function Dashboard() {
   };
 
   const handleRenewSubmit = () => {
-    if (!selectedLicense || !newExpirationDate) return;
-    
+    if (!selectedLicense || !newExpirationDate || !newRenewCost) return;
     const expirationDate = new Date(newExpirationDate);
-    const expirationEpochDay = Math.floor(expirationDate.getTime() / (1000 * 60 * 60 * 24));
-    
+    const expirationEpochDay = Math.floor(expirationDate.getTime() / (1000 * 60 * 60 * 24)) + 1;
     renewMutation.mutate({
       licenseId: selectedLicense.id,
-      newExpirationEpochDay: expirationEpochDay
+      newExpirationEpochDay: expirationEpochDay,
+      cost: parseFloat(newRenewCost)
     });
   };
 
@@ -92,9 +97,16 @@ export default function Dashboard() {
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-lg">Licencias Recientes</span>
+                <Button variant="outline" onClick={() => setDrawerOpen(true)}>
+                  <i className="fas fa-list mr-2" /> Ver Audit Log
+                </Button>
+              </div>
               <LicenseTable 
                 licenses={recentLicenses}
                 onRenew={handleRenewLicense}
+                showCost
               />
             </div>
             
@@ -211,7 +223,6 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Renovar Licencia</DialogTitle>
           </DialogHeader>
-          
           <div className="space-y-4">
             {selectedLicense && (
               <div className="bg-slate-50 rounded-lg p-4">
@@ -221,9 +232,9 @@ export default function Dashboard() {
                 <p className="text-sm text-slate-500">
                   Expira: {new Date(selectedLicense.expirationEpochDay * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES')}
                 </p>
+                <p className="text-sm text-slate-500">Costo actual: ${selectedLicense.cost}</p>
               </div>
             )}
-
             <div>
               <Label htmlFor="newExpirationDate">Nueva Fecha de Expiración *</Label>
               <Input
@@ -234,21 +245,24 @@ export default function Dashboard() {
                 className="mt-1"
               />
             </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <i className="fas fa-info-circle text-blue-600 mr-2" />
-                <span className="text-sm text-blue-800">Costo de renovación: <strong>$300</strong></span>
-              </div>
+            <div>
+              <Label htmlFor="newRenewCost">Nuevo Costo de Renovación *</Label>
+              <Input
+                id="newRenewCost"
+                type="number"
+                step="0.01"
+                value={newRenewCost}
+                onChange={e => setNewRenewCost(e.target.value)}
+                className="mt-1"
+              />
             </div>
-
             <div className="flex justify-end space-x-3">
               <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>
                 Cancelar
               </Button>
               <Button 
                 onClick={handleRenewSubmit}
-                disabled={renewMutation.isPending || !newExpirationDate}
+                disabled={renewMutation.isPending || !newExpirationDate || !newRenewCost}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {renewMutation.isPending ? (
@@ -267,6 +281,21 @@ export default function Dashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Audit Log Drawer */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Audit Log</DrawerTitle>
+            <DrawerClose asChild>
+              <Button variant="outline" className="absolute right-4 top-4">Cerrar</Button>
+            </DrawerClose>
+          </DrawerHeader>
+          <div className="p-4 overflow-auto max-h-[70vh]">
+            <AuditLogPage />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

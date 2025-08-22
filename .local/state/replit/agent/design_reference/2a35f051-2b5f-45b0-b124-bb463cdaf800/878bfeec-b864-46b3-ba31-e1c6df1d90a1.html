@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Licencias</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 font-sans">
+    <!-- @COMPONENT: Sidebar [navigation and branding] -->
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div class="hidden md:flex md:flex-col md:w-64">
+            <div class="flex flex-col flex-grow pt-5 overflow-y-auto bg-white border-r border-slate-200">
+                <div class="flex items-center px-4 mb-8">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-certificate text-white text-sm"></i>
+                        </div>
+                        <span class="text-xl font-bold text-slate-900">LicenseHub</span>
+                    </div>
+                </div>
+                
+                <nav class="flex-1 px-2 pb-4 space-y-1" data-implementation="Navigation state management">
+                    <a href="#" class="bg-blue-50 border-r-2 border-blue-600 text-blue-700 group flex items-center px-2 py-2 text-sm font-medium rounded-l-md">
+                        <i class="fas fa-home mr-3 text-blue-500"></i>
+                        Dashboard
+                    </a>
+                    <a href="#" class="text-slate-700 hover:bg-slate-50 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        <i class="fas fa-certificate mr-3 text-slate-400"></i>
+                        Licencias
+                    </a>
+                    <a href="#" class="text-slate-700 hover:bg-slate-50 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        <i class="fas fa-plus-circle mr-3 text-slate-400"></i>
+                        Nueva Licencia
+                    </a>
+                    <a href="#" class="text-slate-700 hover:bg-slate-50 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        <i class="fas fa-chart-line mr-3 text-slate-400"></i>
+                        Análisis de Ingresos
+                    </a>
+                    <a href="#" class="text-slate-700 hover:bg-slate-50 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        <i class="fas fa-users mr-3 text-slate-400"></i>
+                        División de Ingresos
+                    </a>
+                    <a href="#" class="text-slate-700 hover:bg-slate-50 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        <i class="fas fa-bell mr-3 text-slate-400"></i>
+                        Notificaciones
+                    </a>
+                </nav>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Sidebar -->
+
+        <!-- @COMPONENT: MainContent [main application area] -->
+        <div class="flex flex-col flex-1 w-0 overflow-hidden">
+            <!-- Top header -->
+            <div class="bg-white shadow-sm border-b border-slate-200">
+                <div class="px-4 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <button class="md:hidden mr-3" data-event="click:toggleSidebar">
+                                <i class="fas fa-bars text-slate-500"></i>
+                            </button>
+                            <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <button class="relative p-2 text-slate-400 hover:text-slate-500 bg-slate-100 rounded-full" data-implementation="Notification bell with badge">
+                                <i class="fas fa-bell"></i>
+                                <span class="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">3</span>
+                            </button>
+                            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                                <span class="text-white text-sm font-medium">AD</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main content area -->
+            <main class="flex-1 overflow-y-auto bg-slate-50">
+                <div class="p-6 space-y-6">
+                    
+                    <!-- @COMPONENT: StatsCards [key metrics display] -->
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-certificate text-blue-600 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-slate-600">Total Licencias</p>
+                                    <p class="text-2xl font-bold text-slate-900" data-bind="totalLicenses">24</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-check-circle text-emerald-600 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-slate-600">Licencias Activas</p>
+                                    <p class="text-2xl font-bold text-slate-900" data-bind="activeLicenses">19</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-exclamation-triangle text-amber-600 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-slate-600">Por Vencer (30d)</p>
+                                    <p class="text-2xl font-bold text-slate-900" data-bind="expiringLicenses">5</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-slate-600">Ingresos del Mes</p>
+                                    <p class="text-2xl font-bold text-slate-900" data-bind="monthlyRevenue">$7,200</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_COMPONENT: StatsCards -->
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- @COMPONENT: RecentLicenses [license list with actions] -->
+                        <!-- Recent Licenses Table -->
+                        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200">
+                            <div class="px-6 py-4 border-b border-slate-200">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-lg font-semibold text-slate-900">Licencias Recientes</h3>
+                                    <div class="flex space-x-2">
+                                        <button class="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-event="click:showCreateLicenseModal">
+                                            <i class="fas fa-plus mr-1"></i> Nueva
+                                        </button>
+                                        <button class="px-3 py-1 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
+                                            <i class="fas fa-filter mr-1"></i> Filtros
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Negocio</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">RIF</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tipo</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expira</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Estado</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-slate-200" data-implementation="Should be populated from licenses array">
+                                        <!-- @MAP: licenses.map(license => ( -->
+                                        <tr class="hover:bg-slate-50" data-mock="true">
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm font-medium text-slate-900" data-bind="license.businessName">Panadería El Buen Pan</div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500" data-bind="license.rif">J-12345678-9</td>
+                                            <td class="px-6 py-4">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full" data-bind="license.licenseType">Estándar</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500" data-bind="license.expirationDate">15/03/2024</td>
+                                            <td class="px-6 py-4">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 rounded-full">Activa</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500">
+                                                <div class="flex space-x-2">
+                                                    <button class="text-blue-600 hover:text-blue-900" data-event="click:copyLicense" data-implementation="Copy license key to clipboard">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                    <button class="text-emerald-600 hover:text-emerald-900" data-event="click:renewLicense">
+                                                        <i class="fas fa-redo"></i>
+                                                    </button>
+                                                    <button class="text-amber-600 hover:text-amber-900" data-event="click:editLicense">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class="hover:bg-slate-50" data-mock="true">
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm font-medium text-slate-900">Ferretería Los Tornillos</div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500">J-98765432-1</td>
+                                            <td class="px-6 py-4">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">Premium</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500">22/02/2024</td>
+                                            <td class="px-6 py-4">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full">Por Vencer</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500">
+                                                <div class="flex space-x-2">
+                                                    <button class="text-blue-600 hover:text-blue-900">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                    <button class="text-emerald-600 hover:text-emerald-900">
+                                                        <i class="fas fa-redo"></i>
+                                                    </button>
+                                                    <button class="text-amber-600 hover:text-amber-900">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        <tr class="hover:bg-slate-50" data-mock="true">
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm font-medium text-slate-900">Restaurante La Cocina</div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500">J-11223344-5</td>
+                                            <td class="px-6 py-4">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">Estándar</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500">10/01/2024</td>
+                                            <td class="px-6 py-4">
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">Expirada</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-500">
+                                                <div class="flex space-x-2">
+                                                    <button class="text-blue-600 hover:text-blue-900">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                    <button class="text-emerald-600 hover:text-emerald-900">
+                                                        <i class="fas fa-redo"></i>
+                                                    </button>
+                                                    <button class="text-amber-600 hover:text-amber-900">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <!-- @END_MAP )) -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-sm text-slate-700">Mostrando 1-3 de 24 licencias</p>
+                                    <div class="flex space-x-2">
+                                        <button class="px-3 py-1 text-sm border border-slate-300 rounded-md text-slate-500" disabled>Anterior</button>
+                                        <button class="px-3 py-1 text-sm border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50">Siguiente</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- @END_COMPONENT: RecentLicenses -->
+
+                        <!-- @COMPONENT: QuickActions [sidebar with actions and info] -->
+                        <div class="space-y-6">
+                            <!-- Quick Actions -->
+                            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                <h3 class="text-lg font-semibold text-slate-900 mb-4">Acciones Rápidas</h3>
+                                <div class="space-y-3">
+                                    <button class="w-full flex items-center px-4 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700" data-event="click:showCreateLicenseModal">
+                                        <i class="fas fa-plus mr-3"></i>
+                                        Crear Nueva Licencia
+                                    </button>
+                                    <button class="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200" data-event="click:bulkRenew">
+                                        <i class="fas fa-redo mr-3"></i>
+                                        Renovación Masiva
+                                    </button>
+                                    <button class="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200" data-event="click:exportLicenses">
+                                        <i class="fas fa-download mr-3"></i>
+                                        Exportar Licencias
+                                    </button>
+                                    <button class="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200" data-event="click:showRevenueAnalytics">
+                                        <i class="fas fa-chart-bar mr-3"></i>
+                                        Ver Análisis
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Revenue Split -->
+                            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                <h3 class="text-lg font-semibold text-slate-900 mb-4">División de Ingresos</h3>
+                                <div class="space-y-3" data-implementation="Should be populated from splitPeople array">
+                                    <!-- @MAP: splitPeople.map(person => ( -->
+                                    <div class="flex items-center justify-between" data-mock="true">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-3">
+                                                <span class="text-white text-xs font-medium" data-bind="person.initials">JD</span>
+                                            </div>
+                                            <span class="text-sm font-medium text-slate-900" data-bind="person.name">Juan Pérez</span>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-sm font-semibold text-slate-900" data-bind="person.percentage">35%</div>
+                                            <div class="text-xs text-slate-500" data-bind="person.amount">$2,520</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between" data-mock="true">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center mr-3">
+                                                <span class="text-white text-xs font-medium">MR</span>
+                                            </div>
+                                            <span class="text-sm font-medium text-slate-900">María Rodríguez</span>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-sm font-semibold text-slate-900">30%</div>
+                                            <div class="text-xs text-slate-500">$2,160</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between" data-mock="true">
+                                        <div class="flex items-center">
+                                            <div class="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mr-3">
+                                                <span class="text-white text-xs font-medium">CS</span>
+                                            </div>
+                                            <span class="text-sm font-medium text-slate-900">Carlos Silva</span>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-sm font-semibold text-slate-900">35%</div>
+                                            <div class="text-xs text-slate-500">$2,520</div>
+                                        </div>
+                                    </div>
+                                    <!-- @END_MAP )) -->
+                                </div>
+                                
+                                <button class="w-full mt-4 px-4 py-2 text-sm text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50" data-event="click:manageSplit">
+                                    Gestionar División
+                                </button>
+                            </div>
+
+                            <!-- Notifications -->
+                            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                <h3 class="text-lg font-semibold text-slate-900 mb-4">Notificaciones Recientes</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="flex-shrink-0 w-2 h-2 bg-amber-500 rounded-full mt-2"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-slate-900 font-medium">Licencia próxima a vencer</p>
+                                            <p class="text-xs text-slate-500">Ferretería Los Tornillos expira en 5 días</p>
+                                            <p class="text-xs text-slate-400 mt-1">Hace 2 horas</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="flex-shrink-0 w-2 h-2 bg-emerald-500 rounded-full mt-2"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-slate-900 font-medium">Licencia renovada</p>
+                                            <p class="text-xs text-slate-500">Supermercado El Ahorro renovó por 1 año</p>
+                                            <p class="text-xs text-slate-400 mt-1">Hace 5 horas</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-slate-900 font-medium">Nueva licencia creada</p>
+                                            <p class="text-xs text-slate-500">Tienda El Bazar Premium</p>
+                                            <p class="text-xs text-slate-400 mt-1">Hace 1 día</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- @END_COMPONENT: QuickActions -->
+                    </div>
+                </div>
+            </main>
+        </div>
+        <!-- @END_COMPONENT: MainContent -->
+    </div>
+
+    <!-- @COMPONENT: CreateLicenseModal [license creation form] -->
+    <!-- Create License Modal -->
+    <div id="createLicenseModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50" data-implementation="Modal visibility controlled by JavaScript">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-screen overflow-y-auto">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-semibold text-slate-900">Crear Nueva Licencia</h3>
+                        <button class="text-slate-400 hover:text-slate-600" data-event="click:closeModal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <form class="p-6 space-y-6" data-event="submit:createLicense" data-implementation="Should validate and encrypt license data">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Nombre del Negocio *</label>
+                            <input type="text" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                   placeholder="Ej. Panadería El Buen Pan">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">RIF *</label>
+                            <input type="text" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                   placeholder="J-12345678-9">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Tipo de Licencia *</label>
+                            <select required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Seleccionar tipo</option>
+                                <option value="Estándar">Estándar - $300</option>
+                                <option value="Premium">Premium - $500</option>
+                                <option value="Enterprise">Enterprise - $800</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Fecha de Expiración *</label>
+                            <input type="date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Contraseña de Administrador *</label>
+                            <input type="text" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                   placeholder="Contraseña admin">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Hardware ID</label>
+                            <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                   placeholder="ID del hardware (opcional)">
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-medium text-slate-900">Direcciones</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Dirección 1</label>
+                                <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                       placeholder="Dirección principal">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Dirección 2</label>
+                                <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                       placeholder="Dirección secundaria">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Dirección 3</label>
+                                <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                       placeholder="Tercera dirección">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Dirección 4</label>
+                                <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                       placeholder="Cuarta dirección">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-6 border-t border-slate-200">
+                        <button type="button" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200" data-event="click:closeModal">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700" data-implementation="Should show loading state">
+                            <i class="fas fa-save mr-2"></i>
+                            Crear Licencia
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: CreateLicenseModal -->
+
+    <!-- @COMPONENT: RenewLicenseModal [license renewal form] -->
+    <!-- Renew License Modal -->
+    <div id="renewLicenseModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-semibold text-slate-900">Renovar Licencia</h3>
+                        <button class="text-slate-400 hover:text-slate-600" data-event="click:closeRenewModal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <form class="p-6 space-y-4" data-event="submit:renewLicense">
+                    <div class="bg-slate-50 rounded-lg p-4">
+                        <h4 class="font-medium text-slate-900 mb-2">Licencia Actual</h4>
+                        <p class="text-sm text-slate-600" data-bind="selectedLicense.businessName">Panadería El Buen Pan</p>
+                        <p class="text-sm text-slate-500">RIF: <span data-bind="selectedLicense.rif">J-12345678-9</span></p>
+                        <p class="text-sm text-slate-500">Expira: <span data-bind="selectedLicense.expirationDate">15/03/2024</span></p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Nueva Fecha de Expiración *</label>
+                        <input type="date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Período de Renovación</label>
+                        <select class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-implementation="Should auto-calculate end date">
+                            <option value="custom">Fecha personalizada</option>
+                            <option value="1month">1 Mes (+$50)</option>
+                            <option value="3months">3 Meses (+$140)</option>
+                            <option value="6months">6 Meses (+$270)</option>
+                            <option value="1year">1 Año (+$500)</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                            <span class="text-sm text-blue-800">Costo de renovación: <strong>$300</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200" data-event="click:closeRenewModal">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-redo mr-2"></i>
+                            Renovar Licencia
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: RenewLicenseModal -->
+
+    <!-- @COMPONENT: Toast [notification system] -->
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-white border border-slate-200 rounded-lg shadow-lg p-4 z-50 hidden" data-implementation="Toast system for user feedback">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <i id="toastIcon" class="fas fa-check-circle text-emerald-500"></i>
+            </div>
+            <div class="ml-3">
+                <p id="toastMessage" class="text-sm font-medium text-slate-900">Licencia creada exitosamente</p>
+            </div>
+            <div class="ml-4">
+                <button class="text-slate-400 hover:text-slate-600" data-event="click:closeToast">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: Toast -->
+
+    <script>
+        (function() {
+            // TODO: Implement business logic, API calls, and state management
+            // TODO: Implement AES encryption/decryption matching Kotlin implementation
+            // TODO: Implement Discord webhook notifications
+            // TODO: Implement local storage persistence
+            
+            // Mock data for demonstration
+            let licenses = [
+                {
+                    id: 1,
+                    businessName: "Panadería El Buen Pan",
+                    rif: "J-12345678-9",
+                    licenseType: "Estándar",
+                    expirationDate: "2024-03-15",
+                    status: "active",
+                    encodedLicense: "mock-encrypted-license-key-1",
+                    cost: 300
+                },
+                {
+                    id: 2,
+                    businessName: "Ferretería Los Tornillos",
+                    rif: "J-98765432-1",
+                    licenseType: "Premium",
+                    expirationDate: "2024-02-22",
+                    status: "expiring",
+                    encodedLicense: "mock-encrypted-license-key-2",
+                    cost: 500
+                }
+            ];
+
+            // Modal management
+            function showModal(modalId) {
+                document.getElementById(modalId).classList.remove('hidden');
+            }
+
+            function hideModal(modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+            }
+
+            // Toast notification system
+            function showToast(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                const icon = document.getElementById('toastIcon');
+                const messageEl = document.getElementById('toastMessage');
+                
+                // Set icon and message based on type
+                if (type === 'success') {
+                    icon.className = 'fas fa-check-circle text-emerald-500';
+                } else if (type === 'error') {
+                    icon.className = 'fas fa-exclamation-circle text-red-500';
+                } else if (type === 'warning') {
+                    icon.className = 'fas fa-exclamation-triangle text-amber-500';
+                }
+                
+                messageEl.textContent = message;
+                toast.classList.remove('hidden');
+                
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 3000);
+            }
+
+            // Copy to clipboard functionality
+            async function copyToClipboard(text) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showToast('Licencia copiada al portapapeles', 'success');
+                } catch (err) {
+                    console.error('Error copying to clipboard:', err);
+                    showToast('Error al copiar licencia', 'error');
+                }
+            }
+
+            // Event listeners for modal triggers
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('[data-event*="showCreateLicenseModal"]')) {
+                    showModal('createLicenseModal');
+                }
+                
+                if (e.target.closest('[data-event*="closeModal"]')) {
+                    hideModal('createLicenseModal');
+                }
+                
+                if (e.target.closest('[data-event*="closeRenewModal"]')) {
+                    hideModal('renewLicenseModal');
+                }
+                
+                if (e.target.closest('[data-event*="renewLicense"]')) {
+                    showModal('renewLicenseModal');
+                }
+                
+                if (e.target.closest('[data-event*="copyLicense"]')) {
+                    // In real implementation, this would copy the actual encrypted license
+                    copyToClipboard('mock-encrypted-license-key-abc123');
+                }
+                
+                if (e.target.closest('[data-event*="closeToast"]')) {
+                    document.getElementById('toast').classList.add('hidden');
+                }
+            });
+
+            // Form submissions
+            document.addEventListener('submit', function(e) {
+                if (e.target.closest('[data-event*="createLicense"]')) {
+                    e.preventDefault();
+                    // TODO: Implement actual license creation with encryption
+                    showToast('Licencia creada exitosamente', 'success');
+                    hideModal('createLicenseModal');
+                    // TODO: Send Discord notification
+                    // TODO: Update licenses list
+                }
+                
+                if (e.target.closest('[data-event*="renewLicense"]')) {
+                    e.preventDefault();
+                    // TODO: Implement actual license renewal
+                    showToast('Licencia renovada exitosamente', 'success');
+                    hideModal('renewLicenseModal');
+                    // TODO: Send Discord notification
+                    // TODO: Update licenses list
+                }
+            });
+
+            // Close modals when clicking outside
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('bg-black')) {
+                    const modals = document.querySelectorAll('.fixed.inset-0.bg-black');
+                    modals.forEach(modal => {
+                        modal.classList.add('hidden');
+                    });
+                }
+            });
+
+            // Initialize application
+            console.log('License Management System initialized');
+            console.log('Loaded licenses:', licenses.length);
+            
+            // TODO: Initialize encryption system
+            // TODO: Check for expiring licenses and send notifications
+            // TODO: Load data from persistent storage
+            // TODO: Set up periodic checks for license expiration
+        })();
+    </script>
+</body>
+</html>

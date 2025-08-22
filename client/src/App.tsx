@@ -7,19 +7,28 @@ import Dashboard from "./pages/dashboard";
 import Licenses from "./pages/licenses";
 import CreateLicense from "./pages/create-license";
 import RevenueSplit from "./pages/revenue-split";
-import Sidebar from "@/components/layout/sidebar";
+import Sidebar from "./components/layout/sidebar";
 import NotFound from "@/pages/not-found";
-
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+import LoginPage from "./pages/login";
+import AuditLogPage from "./pages/audit-log";
+import CreateUserPage from "./pages/create-user";
 function Router() {
+  const [location] = useLocation();
+  const showSidebar = location !== "/login";
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-col flex-1 w-0 overflow-hidden">
+      {showSidebar && <Sidebar />}
+      <div className="flex flex-col flex-1 w-0 overflow-auto">
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/licenses" component={Licenses} />
           <Route path="/create-license" component={CreateLicense} />
           <Route path="/revenue-split" component={RevenueSplit} />
+          <Route path="/login" component={LoginPage} />
+          <Route path="/audit-log" component={AuditLogPage} />
+          <Route path="/create-user" component={CreateUserPage} />
           <Route component={NotFound} />
         </Switch>
       </div>
@@ -28,6 +37,13 @@ function Router() {
 }
 
 function App() {
+  const [location, setLocation] = useLocation();
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token && location !== "/login") {
+      setLocation("/login");
+    }
+  }, [location, setLocation]);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
