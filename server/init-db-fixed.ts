@@ -1,6 +1,13 @@
 import Database from "better-sqlite3";
+import fs from "fs";
 
-const db = new Database("local.db");
+const dbPath = "local.db";
+if (fs.existsSync(dbPath)) {
+  console.log("local.db ya existe. No se crea ni modifica.");
+  process.exit(0);
+}
+
+const db = new Database(dbPath);
 
 db.exec(`
 DROP TABLE IF EXISTS audit_logs;

@@ -27,8 +27,8 @@ const licenseFormSchema = insertLicenseSchema.extend({
 type LicenseFormData = z.infer<typeof licenseFormSchema>;
 
 const licenseTypes = [
-  { value: "Factura Fiscal y Garantia", label: "Factura Fiscal y Garantia" },
-  { value: "Factura Fiscal", label: "Factura Fiscal" },
+  { value: "Factura Fiscal y Garantia", label: "Despacho y Garantia" },
+  { value: "Factura Fiscal", label: "Despacho" },
   { value: "Garantia", label: "Garantia" },
 ];
 
