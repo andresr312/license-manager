@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Payment, InsertPayment } from '@shared/schema';
 import type { License, InsertLicense, SplitPerson, InsertSplitPerson, User, InsertUser } from '@shared/schema';
 
-const db = new Database('local.db');
+const db = Database("/root/license-manager/local.db");
 export const orm = drizzle(db);
 
 export class SQLiteStorage {
