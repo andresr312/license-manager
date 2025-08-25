@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import LoginPage from "./pages/login";
 import AuditLogPage from "./pages/audit-log";
 import CreateUserPage from "./pages/create-user";
+import PaymentsPage from "./pages/payments";
 function Router() {
   const [location] = useLocation();
   const showSidebar = location !== "/login";
@@ -45,6 +46,7 @@ function Router() {
           <Route path="/licenses" component={Licenses} />
           <Route path="/create-license" component={CreateLicense} />
           <Route path="/revenue-split" component={RevenueSplit} />
+          <Route path="/payments" component={PaymentsPage} />
           <Route path="/login" component={LoginPage} />
           <Route path="/audit-log" component={AuditLogPage} />
           <Route path="/create-user" component={CreateUserPage} />

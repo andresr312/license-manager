@@ -18,6 +18,7 @@ const navigation = [
   { name: 'Licencias', href: '/licenses', icon: 'fas fa-certificate' },
   { name: 'Nueva Licencia', href: '/create-license', icon: 'fas fa-plus-circle' },
   { name: 'División de Ingresos', href: '/revenue-split', icon: 'fas fa-users' },
+  { name: 'Pagos', href: '/payments', icon: 'fas fa-money-bill-wave' },
   { name: 'Audit Log', href: '/audit-log', icon: 'fas fa-list' },
 ];
 

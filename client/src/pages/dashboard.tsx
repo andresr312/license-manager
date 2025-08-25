@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLicenses } from "@/hooks/use-licenses";
-import { useRevenueAnalytics, useSplitPeople } from "@/hooks/use-revenue";
+import { useDashboardAnalytics } from "@/hooks/use-dashboard-analytics";
+import { useSplitPeople } from "@/hooks/use-revenue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerTrigger } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   
   const { data: licenses = [], isLoading: licensesLoading } = useLicenses();
-  const { data: analytics, isLoading: analyticsLoading } = useRevenueAnalytics();
+  const { data: analytics, isLoading: analyticsLoading } = useDashboardAnalytics();
   const { data: splitPeople = [] } = useSplitPeople();
 
   const renewMutation = useMutation({
@@ -39,7 +40,7 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/licenses'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard-analytics'] });
       toast({ title: "Licencia renovada exitosamente" });
       setRenewDialogOpen(false);
       setSelectedLicense(null);
@@ -68,7 +69,8 @@ export default function Dashboard() {
   };
 
   const recentLicenses = licenses.slice(0, 10);
-  const gainRevenue = analytics ? analytics.totalRevenue * 0.60 : 0;
+  // monthlyRevenue is the only revenue stat in dashboard analytics
+  const gainRevenue = analytics ? analytics.monthlyRevenue * 0.60 : 0;
 
   if (licensesLoading || analyticsLoading) {
     return (

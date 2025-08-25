@@ -1,8 +1,27 @@
+// Tabla de pagos
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey(),
+  licenseId: varchar("license_id").notNull(),
+  amount: real("amount").notNull(),
+  method: text("method").notNull(),
+  status: text("status").notNull().default("por cobrar"), // por cobrar, cobrado
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  paidAt: bigint("paid_at", { mode: "number" }),
+  paidBy: varchar("paid_by"), // id del usuario que marcó como pagado
+  reference: text("reference"), // opcional
+  notes: text("notes"), // opcional
+});
+
+// ...existing code...
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true });
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema> & { id?: string };
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, real, bigint, integer } from "drizzle-orm/pg-core";
 // Tabla de usuarios
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   name: text("name"),
@@ -17,7 +36,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const licenses = pgTable("licenses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(),
   businessName: text("business_name").notNull(),
   rif: text("rif").notNull(),
   expirationEpochDay: bigint("expiration_epoch_day", { mode: "number" }).notNull(),
@@ -34,7 +53,7 @@ export const licenses = pgTable("licenses", {
 });
 
 export const splitPeople = pgTable("split_people", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(),
   name: text("name").notNull(),
   percentage: integer("percentage").notNull(),
 });

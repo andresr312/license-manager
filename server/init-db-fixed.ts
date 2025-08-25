@@ -4,7 +4,7 @@ import fs from "fs";
 const dbPath = "local.db";
 if (fs.existsSync(dbPath)) {
   console.log("local.db ya existe. No se crea ni modifica.");
-  process.exit(0);
+  //process.exit(0);
 }
 
 const db = new Database(dbPath);
@@ -14,7 +14,7 @@ DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS licenses;
 DROP TABLE IF EXISTS split_people;
-
+DROP TABLE IF EXISTS payments;
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
@@ -53,6 +53,19 @@ CREATE TABLE IF NOT EXISTS split_people (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   percentage INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id TEXT PRIMARY KEY,
+  license_id TEXT NOT NULL,
+  amount REAL NOT NULL,
+  method TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'por cobrar',
+  created_at INTEGER NOT NULL,
+  paid_at INTEGER,
+  paid_by TEXT,
+  reference TEXT,
+  notes TEXT
 );
 `);
 

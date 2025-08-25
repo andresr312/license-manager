@@ -1,14 +1,16 @@
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import Database from 'better-sqlite3';
-import { licenses, splitPeople, users } from '@shared/schema';
+import { licenses, splitPeople, users, payments } from '@shared/schema';
+import { v4 as uuidv4 } from 'uuid';
+import type { Payment, InsertPayment } from '@shared/schema';
 import type { License, InsertLicense, SplitPerson, InsertSplitPerson, User, InsertUser } from '@shared/schema';
 
 const db = new Database('local.db');
 export const orm = drizzle(db);
 
 export class SQLiteStorage {
-  // User operations
+
   async getUserByUsername(username: string): Promise<User | undefined> {
     const result = await orm.select().from(users).where(eq(users.username, username));
     return result[0];
@@ -23,7 +25,11 @@ export class SQLiteStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const [created] = await orm.insert(users).values(user).returning();
+    const userWithId = {
+      ...user,
+      id: user.id ?? uuidv4(),
+    };
+    const [created] = await orm.insert(users).values(userWithId).returning();
     return created;
   }
 
@@ -41,7 +47,11 @@ export class SQLiteStorage {
   }
 
   async createLicense(license: InsertLicense & { encodedLicense: string, creationEpochDay: number }): Promise<License> {
-    const [created] = await orm.insert(licenses).values(license).returning();
+    const licenseWithId = {
+      ...license,
+      id: license.id ?? uuidv4(),
+    };
+    const [created] = await orm.insert(licenses).values(licenseWithId).returning();
     return created;
   }
 
@@ -61,7 +71,11 @@ export class SQLiteStorage {
   }
 
   async createSplitPerson(person: InsertSplitPerson): Promise<SplitPerson> {
-    const [created] = await orm.insert(splitPeople).values(person).returning();
+    const personWithId = {
+      ...person,
+      id: person.id ?? uuidv4(),
+    };
+    const [created] = await orm.insert(splitPeople).values(personWithId).returning();
     return created;
   }
 
@@ -77,5 +91,32 @@ export class SQLiteStorage {
   }
   async setExpiredNotification(licenseId: string, epochDay: number): Promise<void> {
     // Implement with a table if needed
+  }
+
+  // Payments operations
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const paymentWithId = {
+      ...payment,
+      id: payment.id ?? uuidv4(),
+    };
+    const [created] = await orm.insert(payments).values(paymentWithId).returning();
+    return created;
+  }
+
+  async getAllPayments(status?: string): Promise<Payment[]> {
+    if (status) {
+      return await orm.select().from(payments).where(eq(payments.status, status));
+    }
+    return await orm.select().from(payments);
+  }
+
+  async updatePaymentStatus(id: string, status: string, paidBy?: string): Promise<Payment | undefined> {
+    const updateData: Partial<Payment> = { status };
+    if (status === 'cobrado') {
+      updateData.paidAt = Date.now();
+      if (paidBy) updateData.paidBy = paidBy;
+    }
+    const [updated] = await orm.update(payments).set(updateData).where(eq(payments.id, id)).returning();
+    return updated;
   }
 }

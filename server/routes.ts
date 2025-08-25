@@ -1,3 +1,5 @@
+  // Endpoint para analytics del dashboard
+
 
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
@@ -65,6 +67,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error al cargar logs" });
     }
   });
+
+    app.put("/api/payments/:id/pay", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reference, notes, method } = req.body;
+      // Actualizar estado del pago
+      const updated = await storage.updatePaymentStatus(id, "cobrado", req.user?.username || "");
+      // Guardar método, referencia y notas si se envían
+      if (updated) {
+        if (method) updated.method = method;
+        if (reference) updated.reference = reference;
+        if (notes) updated.notes = notes;
+        // Actualizar en la base de datos
+        await storage.updatePaymentStatus(id, "cobrado", req.user?.username || "");
+      }
+      // Obtener datos de la licencia para el log
+      let licenseInfo = "";
+      if (updated && updated.licenseId) {
+        const license = await storage.getLicense(updated.licenseId);
+        if (license) {
+          licenseInfo = `${license.businessName} (${license.rif})`;
+        }
+      }
+      // Crear log de auditoría
+      await logAudit({
+        user_id: req.user?.id || "",
+        username: req.user?.username || "",
+        action: "mark_payment_paid",
+        details: `Pago marcado como cobrado: ${licenseInfo}\nMétodo: ${method}\nReferencia: ${reference}\nNotas: ${notes}`
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error al marcar pago como pagado:", error);
+      res.status(500).json({ message: "Error al marcar pago como pagado" });
+    }
+  });
+    app.get("/api/dashboard-analytics", authenticateToken, async (req, res) => {
+    try {
+      const licenses = await storage.getAllLicenses();
+      const today = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+      const thisMonth = new Date();
+      thisMonth.setDate(1);
+      const thisMonthEpoch = Math.floor(thisMonth.getTime() / (1000 * 60 * 60 * 24));
+      const monthlyRevenue = licenses
+        .filter(license => license.creationEpochDay >= thisMonthEpoch)
+        .reduce((sum, license) => sum + license.cost, 0);
+      const totalLicenses = licenses.length;
+      const activeLicenses = licenses.filter(license => license.expirationEpochDay >= today).length;
+      const expiringLicenses = licenses.filter(license => {
+        const daysRemaining = license.expirationEpochDay - today;
+        return daysRemaining >= 0 && daysRemaining <= 7;
+      }).length;
+      const expiredLicenses = licenses.filter(license => license.expirationEpochDay < today).length;
+      res.json({
+        totalLicenses,
+        activeLicenses,
+        expiringLicenses,
+        expiredLicenses,
+        monthlyRevenue
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard analytics:", error);
+      res.status(500).json({ message: "Error fetching dashboard analytics" });
+    }
+  });
   // Login con JWT
   app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
@@ -116,13 +183,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create new license
+    app.get("/api/payments", authenticateToken, async (req, res) => {
+    try {
+      const { status } = req.query;
+      const payments = await storage.getAllPayments(typeof status === "string" ? status : undefined);
+      const licenseIds = payments.map(p => p.licenseId);
+      const licenses = await storage.getAllLicenses();
+      const licenseMap = new Map(licenses.map(l => [l.id, l]));
+      const paymentsWithLicense = payments.map(p => ({
+        ...p,
+        businessName: licenseMap.get(p.licenseId)?.businessName || "",
+        rif: licenseMap.get(p.licenseId)?.rif || ""
+      }));
+      res.json(paymentsWithLicense);
+    } catch (error) {
+      console.error("Error al listar pagos:", error);
+      res.status(500).json({ message: "Error al listar pagos" });
+    }
+  });
+
   app.post("/api/licenses", authenticateToken, async (req, res) => {
     try {
       const data = insertLicenseSchema.parse(req.body);
-      const creationEpochDay = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+      const { paymentMethod, paymentReference, paymentNotes } = req.body;
+      const creationEpochDay = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) + 1;
       const expirationDate = new Date(data.expirationEpochDay * 24 * 60 * 60 * 1000);
-      const creationDate = new Date(creationEpochDay * 24 * 60 * 60 * 1000);
+      const creationDate = new Date((creationEpochDay + 1) * 24 * 60 * 60 * 1000);
       const encodedLicense = LicenseGenerator.generateLicense(
         expirationDate.toLocaleDateString('es-ES'),
         data.rif,
@@ -142,14 +228,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         encodedLicense,
         creationEpochDay
       });
-  await logAudit({
-    user_id: req.user?.id || "",
-    username: req.user?.username || "",
-    action: "create_license",
-    details: `Licencia creada: ${license.id}\nRIF: ${license.rif}\nBusiness: ${license.businessName}\nTipo: ${license.licenseType}\nExpira: ${license.expirationEpochDay}\nCosto: ${license.cost}\nHWID: ${license.hardwareId}\nDirección: ${license.direccion1} ${license.direccion2} ${license.direccion3} ${license.direccion4}`
-  });
+      // Crear pago asociado
+      const payment = await storage.createPayment({
+        licenseId: license.id,
+        amount: license.cost,
+        method: paymentMethod || "efectivo",
+        status: "por cobrar",
+        createdAt: Date.now(),
+        reference: paymentReference || "",
+        notes: paymentNotes || ""
+      });
+      await logAudit({
+        user_id: req.user?.id || "",
+        username: req.user?.username || "",
+        action: "create_license",
+        details: `Licencia creada: ${license.id}\nRIF: ${license.rif}\nBusiness: ${license.businessName}\nTipo: ${license.licenseType}\nExpira: ${license.expirationEpochDay}\nCosto: ${license.cost}\nHWID: ${license.hardwareId}\nDirección: ${license.direccion1} ${license.direccion2} ${license.direccion3} ${license.direccion4}\nPago creado: ${payment.id} (${payment.method})`
+      });
       await DiscordNotifier.sendLicenseCreated(license);
-      res.json(license);
+      res.json({ license, payment });
     } catch (error) {
       console.error("Error creating license:", error);
       if (error instanceof z.ZodError) {
@@ -173,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "License not found" });
       }
       const expirationDate = new Date(newExpirationEpochDay * 24 * 60 * 60 * 1000);
-      const creationDate = new Date(existingLicense.creationEpochDay * 24 * 60 * 60 * 1000);
+      const creationDate = new Date((existingLicense.creationEpochDay + 1) * 24 * 60 * 60 * 1000);
       const encodedLicense = LicenseGenerator.generateLicense(
         expirationDate.toLocaleDateString('es-ES'),
         existingLicense.rif,
@@ -228,33 +324,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get revenue analytics
+  function getISOWeek(date: Date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        return { year: d.getUTCFullYear(), week: weekNum };
+  }
+
+
   app.get("/api/analytics", authenticateToken, async (req, res) => {
-    try {
+      try {
+      const { week } = req.query;
       const licenses = await storage.getAllLicenses();
+      const payments = await storage.getAllPayments();
+      // Función consistente para obtener el año y número de semana ISO
+
+
+      // Filtrar pagos por semana
+      let filteredPayments = payments;
+      if (week) {
+        const [targetYear, targetWeek] = String(week).split("-").map(Number);
+        filteredPayments = payments.filter(p => {
+          if (!p.createdAt || typeof p.createdAt !== 'number' || p.createdAt < 1000000000000) return false;
+          const { year, week: paymentWeek } = getISOWeek(new Date(p.createdAt));
+          return year === targetYear && paymentWeek === targetWeek;
+        });
+      }
+      // Calcular ingresos cobrados y por cobrar
+      const cobrados = filteredPayments.filter(p => p.status === "cobrado").reduce((sum, p) => sum + p.amount, 0);
+      const porCobrar = filteredPayments.filter(p => p.status === "por cobrar").reduce((sum, p) => sum + p.amount, 0);
+      const totalRevenue = cobrados + porCobrar;
+      const porcentajeCobrado = totalRevenue > 0 ? Math.round((cobrados / totalRevenue) * 100) : 0;
+      const porcentajePorCobrar = totalRevenue > 0 ? Math.round((porCobrar / totalRevenue) * 100) : 0;
+      // Semanas disponibles
+      const allWeeks = Array.from(new Set(payments.map(p => {
+        const { year, week } = getISOWeek(new Date(p.createdAt));
+        return `${year}-${week}`;
+      })));
+      // Calcular stats clásicos
       const today = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
       const thisMonth = new Date();
       thisMonth.setDate(1);
       const thisMonthEpoch = Math.floor(thisMonth.getTime() / (1000 * 60 * 60 * 24));
-      const totalRevenue = licenses.reduce((sum, license) => sum + license.cost, 0);
       const monthlyRevenue = licenses
         .filter(license => license.creationEpochDay >= thisMonthEpoch)
         .reduce((sum, license) => sum + license.cost, 0);
+      const weeklyRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+      const totalLicenses = licenses.length;
       const activeLicenses = licenses.filter(license => license.expirationEpochDay >= today).length;
       const expiringLicenses = licenses.filter(license => {
         const daysRemaining = license.expirationEpochDay - today;
-        return daysRemaining >= 0 && daysRemaining <= 30;
+        return daysRemaining >= 0 && daysRemaining <= 7;
       }).length;
       const expiredLicenses = licenses.filter(license => license.expirationEpochDay < today).length;
-  // No loguear consultas
       res.json({
         totalRevenue,
         monthlyRevenue,
-        weeklyRevenue: monthlyRevenue / 4, // Approximate
-        totalLicenses: licenses.length,
+        weeklyRevenue,
+        totalLicenses,
         activeLicenses,
         expiringLicenses,
-        expiredLicenses
+        expiredLicenses,
+        cobrados,
+        porCobrar,
+        porcentajeCobrado,
+        porcentajePorCobrar,
+  weeks: allWeeks,
+  selectedWeek: typeof week === "string" && week.length > 0 ? week : null
       });
     } catch (error) {
       console.error("Error fetching analytics:", error);

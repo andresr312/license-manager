@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import Header from "@/components/layout/header";
 import LicenseTable from "@/components/license/license-table";
 import { useLicenses } from "@/hooks/use-licenses";
@@ -16,10 +16,10 @@ export default function Licenses() {
   const [selectedLicense, setSelectedLicense] = useState<LicenseWithStatus | null>(null);
   const [newExpirationDate, setNewExpirationDate] = useState("");
   const [newRenewCost, setNewRenewCost] = useState("");
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const { data: licenses = [], isLoading } = useLicenses();
 
   const renewMutation = useMutation({
@@ -41,6 +41,7 @@ export default function Licenses() {
   });
 
   const handleRenewLicense = (license: LicenseWithStatus) => {
+    const creationDate = new Date(license.creationEpochDay * 24 * 60 * 60 * 1000);
     setSelectedLicense(license);
     setRenewDialogOpen(true);
   };
