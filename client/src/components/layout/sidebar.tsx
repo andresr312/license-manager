@@ -93,6 +93,21 @@ export default function Sidebar({ mobile = false, open = false, onClose }: Sideb
             Crear usuario
           </Link>
         )}
+        {/* Download Button */}
+        <button
+          className="mt-4 w-full flex items-center px-2 py-2 text-sm font-medium rounded-l-md bg-green-50 text-green-700 hover:bg-green-100"
+          onClick={() => {
+            const link = document.createElement('a');
+            link.href = '/Calculadora.exe';
+            link.download = 'Calculadora.exe';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }}
+        >
+          <i className="mr-3 fas fa-download text-green-500" />
+          Descargar
+        </button>
       </nav>
     </div>
   );
