@@ -1,4 +1,4 @@
-  // Endpoint para analytics del dashboard
+// Endpoint para analytics del dashboard
 
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -68,7 +68,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-    app.put("/api/payments/:id/pay", authenticateToken, async (req, res) => {
+  // Middleware para verificar rol admin
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Solo administradores pueden realizar esta acción." });
+  }
+  next();
+}
+
+  // Endpoint para marcar pago como pagado (solo admin)
+  app.put("/api/payments/:id/pay", authenticateToken, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const { reference, notes, method } = req.body;
@@ -103,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error al marcar pago como pagado" });
     }
   });
-    app.get("/api/dashboard-analytics", authenticateToken, async (req, res) => {
+  app.get("/api/dashboard-analytics", authenticateToken, async (req, res) => {
     try {
       const licenses = await storage.getAllLicenses();
       const today = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
@@ -309,7 +318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete license
-  app.delete("/api/licenses/:id", authenticateToken, async (req, res) => {
+  app.delete("/api/licenses/:id", authenticateToken, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deleteLicense(id);
@@ -434,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/split-people", authenticateToken, async (req, res) => {
+  app.post("/api/split-people", authenticateToken, requireAdmin, async (req, res) => {
     try {
       const data = insertSplitPersonSchema.parse(req.body);
       const person = await storage.createSplitPerson({

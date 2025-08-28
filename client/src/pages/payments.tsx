@@ -6,6 +6,18 @@ import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+
+function getUserRole() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || null;
+  } catch {
+    return null;
+  }
+};
+
 const paymentMethods = ["efectivo", "transferencia", "zelle", "pago móvil", "otro"];
 
 export default function PaymentsPage() {
@@ -41,6 +53,8 @@ export default function PaymentsPage() {
       setMethod(paymentMethods[0]);
     },
   });
+
+  const role = getUserRole();
 
   return (
     <div className="flex-1">
@@ -80,8 +94,8 @@ export default function PaymentsPage() {
                       <Badge variant={p.status === "cobrado" ? "default" : "destructive"}>{p.status}</Badge>
                     </td>
                     <td>
-                      {p.status === "por cobrar" && (
-                        <Button size="sm" onClick={() => { setSelectedPayment(p); setReportDialogOpen(true); }}>
+                      {role === "admin" && p.status === "por cobrar" && (
+                        <Button onClick={() => { setSelectedPayment(p); setReportDialogOpen(true); }}>
                           Marcar como pagado
                         </Button>
                       )}

@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { LicenseWithStatus } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import React from "react";
 
 interface LicenseTableProps {
   licenses: LicenseWithStatus[];
@@ -14,10 +15,22 @@ interface LicenseTableProps {
   showCost?: boolean;
 }
 
+function getUserRole() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const role = getUserRole();
 
   const deleteMutation = useMutation({
     mutationFn: async (licenseId: string) => {
@@ -123,15 +136,17 @@ export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTab
                         >
                           <i className="fas fa-redo" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteMutation.mutate(license.id)}
-                          disabled={deleteMutation.isPending}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <i className="fas fa-trash" />
-                        </Button>
+                        {role === "admin" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteMutation.mutate(license.id)}
+                            disabled={deleteMutation.isPending}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <i className="fas fa-trash" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

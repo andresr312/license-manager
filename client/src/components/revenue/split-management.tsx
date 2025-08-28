@@ -20,6 +20,17 @@ interface SplitManagementProps {
   totalRevenue: number;
 }
 
+function getUserRole() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SplitManagement({ people, totalRevenue }: SplitManagementProps) {
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
@@ -86,19 +97,23 @@ export default function SplitManagement({ people, totalRevenue }: SplitManagemen
     'bg-indigo-600'
   ];
 
+  const role = getUserRole();
+
   return (
     <div className="space-y-6">
       <Card className="shadow-sm border border-slate-200">
         <CardHeader className="border-b border-slate-200">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold text-slate-900">División de Ingresos</CardTitle>
-            <Button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <i className="fas fa-plus mr-2" />
-              Agregar Persona
-            </Button>
+            {role === "admin" && (
+              <Button
+                onClick={() => setShowForm(!showForm)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <i className="fas fa-plus mr-2" />
+                Agregar Persona
+              </Button>
+            )}
           </div>
         </CardHeader>
         
