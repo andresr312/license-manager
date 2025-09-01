@@ -10,9 +10,9 @@ on:
 
 jobs:
   build-and-deploy:
-    environment: license-manager
     if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: license-manager
     steps:
       - name: Clonar el repositorio
         uses: actions/checkout@v2
