@@ -10,6 +10,7 @@ on:
 
 jobs:
   build-and-deploy:
+    secrets: inherit
     if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
