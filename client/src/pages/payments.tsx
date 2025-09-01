@@ -77,7 +77,7 @@ export default function PaymentsPage() {
           <Button size="sm" variant={statusFilter === "cobrado" ? "default" : "outline"} onClick={() => setStatusFilter("cobrado")}>Cobrados</Button>
         </div>
         {isLoading ? (
-          <div className="animate-pulse">Cargando pagos...</div>
+          <div className="animate-pulse">Cargando pagos....</div>
         ) : (
           <div className="bg-white rounded-xl shadow p-4">
             <table className="w-full text-sm">
