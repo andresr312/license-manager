@@ -12,7 +12,6 @@ jobs:
   build-and-deploy:
     if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'push'
     runs-on: ubuntu-latest
-    secrets: inherit
     steps:
       - name: Clonar el repositorio
         uses: actions/checkout@v2
@@ -33,7 +32,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
           target: "/opt/license/license-manager/"
-          strip_components: 1
 
       - name: Mover archivos y establecer permisos en el VPS
         uses: appleboy/ssh-action@master
