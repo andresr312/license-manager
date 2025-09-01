@@ -17,9 +17,16 @@ export interface IStorage {
   // Notification tracking
   getExpiredNotifications(): Promise<Map<string, number>>;
   setExpiredNotification(licenseId: string, epochDay: number): Promise<void>;
+
+  // Payments operations
+  deletePayment(id: string): Promise<boolean>;
 }
 
 // Implementación persistente con SQLite
-export class PersistentStorage extends SQLiteStorage implements IStorage {}
+export class PersistentStorage extends SQLiteStorage implements IStorage {
+  async deletePayment(id: string): Promise<boolean> {
+    return super.deletePayment(id);
+  }
+}
 
 export const storage = new PersistentStorage();

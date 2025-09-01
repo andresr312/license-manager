@@ -98,7 +98,7 @@ export default function Sidebar({ mobile = false, open = false, onClose }: Sideb
           className="mt-4 w-full flex items-center px-2 py-2 text-sm font-medium rounded-l-md bg-green-50 text-green-700 hover:bg-green-100"
           onClick={() => {
             const link = document.createElement('a');
-            link.href = '/Calculadora.exe';
+            link.href = 'https://github.com/andresr312/license-manager/releases/latest/download/Calculadora.exe';
             link.download = 'Calculadora.exe';
             document.body.appendChild(link);
             link.click();

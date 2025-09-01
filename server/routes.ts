@@ -173,7 +173,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
       const licensesWithStatus = licenses.map(license => {
         const daysRemaining = license.expirationEpochDay - today;
         let status: 'active' | 'expiring' | 'expired' = 'active';
-        if (daysRemaining < 0) {
+        if (daysRemaining <= 0) {
           status = 'expired';
         } else if (daysRemaining <= 7) {
           status = 'expiring';
@@ -208,6 +208,21 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
     } catch (error) {
       console.error("Error al listar pagos:", error);
       res.status(500).json({ message: "Error al listar pagos" });
+    }
+  });
+
+    app.delete("/api/payments/:id", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deletePayment(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Payment not found" });
+      }
+      await logAudit({ user_id: req.user?.id || "", username: req.user?.username || "", action: "delete_payment", details: `Pago eliminado: ${id}` });
+      res.json({ message: "Payment deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting payment:", error);
+      res.status(500).json({ message: "Error deleting payment" });
     }
   });
 
@@ -278,7 +293,9 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
         return res.status(404).json({ message: "License not found" });
       }
       const expirationDate = new Date(newExpirationEpochDay * 24 * 60 * 60 * 1000);
-      const creationDate = new Date((existingLicense.creationEpochDay + 1) * 24 * 60 * 60 * 1000);
+      // Set creationEpochDay to today
+      const todayEpochDay = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+      const todayDate = new Date(todayEpochDay * 24 * 60 * 60 * 1000);
       const encodedLicense = LicenseGenerator.generateLicense(
         expirationDate.toLocaleDateString('es-ES'),
         existingLicense.rif,
@@ -290,11 +307,12 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
         existingLicense.adminPassword,
         existingLicense.licenseType,
         existingLicense.hardwareId || "",
-        creationDate.toLocaleDateString('es-ES')
+        todayDate.toLocaleDateString('es-ES')
       );
       const updateData: any = {
         expirationEpochDay: newExpirationEpochDay,
-        encodedLicense
+        encodedLicense,
+        creationEpochDay: todayEpochDay
       };
       if (typeof cost === 'number' && !isNaN(cost)) {
         updateData.cost = cost;

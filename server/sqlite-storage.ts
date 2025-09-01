@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Payment, InsertPayment } from '@shared/schema';
 import type { License, InsertLicense, SplitPerson, InsertSplitPerson, User, InsertUser } from '@shared/schema';
 
+//const db = Database("local.db");
 const db = Database("/root/license-manager/local.db");
 export const orm = drizzle(db);
 
@@ -118,5 +119,10 @@ export class SQLiteStorage {
     }
     const [updated] = await orm.update(payments).set(updateData).where(eq(payments.id, id)).returning();
     return updated;
+  }
+
+  async deletePayment(id: string): Promise<boolean> {
+    const result = await orm.delete(payments).where(eq(payments.id, id));
+    return result.changes > 0;
   }
 }

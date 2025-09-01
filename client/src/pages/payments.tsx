@@ -54,6 +54,16 @@ export default function PaymentsPage() {
     },
   });
 
+
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/payments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+    },
+  });
+
   const role = getUserRole();
 
   return (
@@ -94,10 +104,21 @@ export default function PaymentsPage() {
                       <Badge variant={p.status === "cobrado" ? "default" : "destructive"}>{p.status}</Badge>
                     </td>
                     <td>
-                      {role === "admin" && p.status === "por cobrar" && (
-                        <Button onClick={() => { setSelectedPayment(p); setReportDialogOpen(true); }}>
-                          Marcar como pagado
-                        </Button>
+                      {role === "admin" && (
+                        <div className="flex gap-2">
+                          {p.status === "por cobrar" && (
+                            <Button onClick={() => { setSelectedPayment(p); setReportDialogOpen(true); }}>
+                              Marcar como pagado
+                            </Button>
+                          )}
+                          <Button
+                            variant="destructive"
+                            onClick={() => deletePaymentMutation.mutate(p.id)}
+                            disabled={deletePaymentMutation.isPending}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
                       )}
                       {p.status === "cobrado" && (
                         <span className="text-xs text-slate-500">Cobrado por: {p.paidBy || "-"}</span>

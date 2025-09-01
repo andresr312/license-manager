@@ -48,9 +48,9 @@ export default function LicenseForm() {
       direccion3: "",
       direccion4: "",
       licenseType: "",
-  hardwareId: "",
+      hardwareId: "",
       expirationDate: "",
-      cost: 300,
+      cost: 0,
     },
   });
 
@@ -75,10 +75,12 @@ export default function LicenseForm() {
   });
 
   const onSubmit = (data: LicenseFormData) => {
-    createMutation.mutate(data);
+    const fixedData = {
+      ...data,
+      cost: typeof data.cost === "string" ? parseFloat(data.cost) : data.cost
+    };
+    createMutation.mutate(fixedData);
   };
-
-  // El costo lo coloca el usuario, no depende del tipo de licencia
 
   return (
     <Card className="max-w-4xl mx-auto">
@@ -259,9 +261,10 @@ export default function LicenseForm() {
                     <Input 
                       type="number" 
                       step="0.01" 
-                      {...field} 
-                      value={field.value || ""} 
-                      onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                      value={field.value === undefined || Number.isNaN(field.value) ? "" : String(field.value)}
+                      onChange={e => {
+                        field.onChange(e.target.value);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
