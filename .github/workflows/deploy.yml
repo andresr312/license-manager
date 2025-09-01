@@ -32,7 +32,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
           target: "/opt/license/license-manager/"
-          debug: true
 
       - name: Mover archivos y establecer permisos en el VPS
         uses: appleboy/ssh-action@master
