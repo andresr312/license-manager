@@ -123,6 +123,7 @@ export class SQLiteStorage {
 
   async deletePayment(id: string): Promise<boolean> {
     const result = await orm.delete(payments).where(eq(payments.id, id));
-    return result.changes > 0;
+    // better-sqlite3 returns an object with 'changes' property
+    return result && typeof result.changes === 'number' ? result.changes > 0 : false;
   }
 }

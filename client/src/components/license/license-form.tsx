@@ -17,7 +17,7 @@ import { useLocation } from "wouter";
 const licenseFormSchema = insertLicenseSchema.extend({
   expirationDate: z.string().min(1, "La fecha de expiración es requerida"),
   hardwareId: z.string().min(1, "El Hardware ID es obligatorio"),
-  cost: z.number().min(0, "El costo debe ser mayor o igual a 0"),
+  cost: z.preprocess((val) => val === "" ? undefined : Number(val), z.number().min(0, "El costo debe ser mayor o igual a 0")),
   direccion1: z.string().optional(),
   direccion2: z.string().optional(),
   direccion3: z.string().optional(),

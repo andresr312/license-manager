@@ -321,14 +321,25 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
       if (!updatedLicense) {
         return res.status(404).json({ message: "License not found" });
       }
-  await logAudit({
-    user_id: req.user?.id || "",
-    username: req.user?.username || "",
-    action: "renew_license",
-    details: `Licencia renovada: ${id}\nRIF: ${updatedLicense.rif}\nBusiness: ${updatedLicense.businessName}\nTipo: ${updatedLicense.licenseType}\nExpira: ${updatedLicense.expirationEpochDay}\nCosto: ${updatedLicense.cost}\nHWID: ${updatedLicense.hardwareId}\nDirección: ${updatedLicense.direccion1} ${updatedLicense.direccion2} ${updatedLicense.direccion3} ${updatedLicense.direccion4}`
-  });
+      // Crear nuevo pago por la renovación
+      const payment = await storage.createPayment({
+        id: undefined,
+        licenseId: updatedLicense.id,
+        amount: updatedLicense.cost,
+        method: "efectivo", // Puedes cambiar el método si lo deseas
+        status: "por cobrar",
+        createdAt: Date.now(),
+        reference: "",
+        notes: "Renovación de licencia"
+      });
+      await logAudit({
+        user_id: req.user?.id || "",
+        username: req.user?.username || "",
+        action: "renew_license",
+        details: `Licencia renovada: ${id}\nRIF: ${updatedLicense.rif}\nBusiness: ${updatedLicense.businessName}\nTipo: ${updatedLicense.licenseType}\nExpira: ${updatedLicense.expirationEpochDay}\nCosto: ${updatedLicense.cost}\nHWID: ${updatedLicense.hardwareId}\nDirección: ${updatedLicense.direccion1} ${updatedLicense.direccion2} ${updatedLicense.direccion3} ${updatedLicense.direccion4}\nPago creado: ${payment.id}`
+      });
       await DiscordNotifier.sendLicenseRenewed(existingLicense, updatedLicense);
-      res.json(updatedLicense);
+      res.json({ license: updatedLicense, payment });
     } catch (error) {
       console.error("Error renewing license:", error);
       res.status(500).json({ message: "Error renewing license" });
