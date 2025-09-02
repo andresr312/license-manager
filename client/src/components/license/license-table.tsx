@@ -8,6 +8,7 @@ import type { LicenseWithStatus } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface LicenseTableProps {
   licenses: LicenseWithStatus[];
@@ -32,6 +33,9 @@ export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTab
   const queryClient = useQueryClient();
   const role = getUserRole();
 
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedLicense, setSelectedLicense] = useState<LicenseWithStatus | null>(null);
+
   const deleteMutation = useMutation({
     mutationFn: async (licenseId: string) => {
       return apiRequest('DELETE', `/api/licenses/${licenseId}`);
@@ -55,7 +59,7 @@ export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTab
     }
   };
 
-  const filteredLicenses = licenses.filter(license => 
+  const filteredLicenses = licenses.filter(license =>
     license.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     license.rif.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -73,8 +77,6 @@ export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTab
     }
   };
 
-;
-
   return (
     <Card className="shadow-sm border border-slate-200">
       <CardHeader className="border-b border-slate-200">
@@ -90,7 +92,6 @@ export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTab
           </div>
         </div>
       </CardHeader>
-      
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="min-w-full">
@@ -136,6 +137,14 @@ export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTab
                         >
                           <i className="fas fa-redo" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setSelectedLicense(license); setDetailsDialogOpen(true); }}
+                          className="text-slate-600 hover:text-slate-900"
+                        >
+                          <i className="fas fa-eye" />
+                        </Button>
                         {role === "admin" && (
                           <Button
                             variant="ghost"
@@ -155,13 +164,38 @@ export default function LicenseTable({ licenses, onRenew, showCost }: LicenseTab
             </tbody>
           </table>
         </div>
-        
         {filteredLicenses.length === 0 && (
           <div className="text-center py-8 text-slate-500">
             No se encontraron licencias
           </div>
         )}
       </CardContent>
+      {/* Modal de detalles de licencia */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalles de la Licencia</DialogTitle>
+          </DialogHeader>
+          {selectedLicense && (
+            <div className="space-y-2 text-sm">
+              <div><strong>Negocio:</strong> {selectedLicense.businessName}</div>
+              <div><strong>RIF:</strong> {selectedLicense.rif}</div>
+              <div><strong>Expira:</strong> {new Date(selectedLicense.expirationEpochDay * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES')}</div>
+              <div><strong>Costo:</strong> ${selectedLicense.cost}</div>
+              <div><strong>Estado:</strong> {getStatusBadge(selectedLicense.status)}</div>
+              <div><strong>Dirección 1:</strong> {selectedLicense.direccion1}</div>
+              <div><strong>Dirección 2:</strong> {selectedLicense.direccion2}</div>
+              <div><strong>Dirección 3:</strong> {selectedLicense.direccion3}</div>
+              <div><strong>Dirección 4:</strong> {selectedLicense.direccion4}</div>
+              <div><strong>Tipo:</strong> {selectedLicense.licenseType}</div>
+              <div><strong>Hardware ID:</strong> {selectedLicense.hardwareId}</div>
+              <div><strong>Creación:</strong> {selectedLicense.creationEpochDay ? new Date(selectedLicense.creationEpochDay * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES') : '-'}</div>
+              <div><strong>Contraseña admin:</strong> {selectedLicense.adminPassword}</div>
+              <div><strong>Licencia codificada:</strong> <span className="break-all">{selectedLicense.encodedLicense}</span></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
