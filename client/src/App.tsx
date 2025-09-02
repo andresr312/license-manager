@@ -63,6 +63,16 @@ function App() {
     const token = localStorage.getItem("token");
     if (!token && location !== "/login") {
       setLocation("/login");
+      return;
+    }
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && Date.now() / 1000 > payload.exp) {
+          localStorage.removeItem("token");
+          setLocation("/login");
+        }
+      } catch {}
     }
   }, [location, setLocation]);
   return (
